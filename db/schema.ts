@@ -30,6 +30,7 @@ export const pgpmembers = pgTable("pgpmembers", {
   status: text("status").notNull(), // Member or Alumni
   officerPosition: text("officer_position"),
   officerDateElected: text("officer_date_elected"),
+  formerPresidentChapter: text("former_president_chapter"),
   formerPresidentStart: text("former_president_start"),
   formerPresidentEnd: text("former_president_end"),
   formerMasterInitiatorStart: text("former_master_initiator_start"),

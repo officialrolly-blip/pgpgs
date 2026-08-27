@@ -14,6 +14,15 @@ const MEMBER_STATUSES = [
   "Former Chapter Lady Initiator",
   "Grand Knights",
 ] as const;
+const PGPGS_CHAPTERS = [
+  "Roxas City Capiz Chapter",
+  "Panay Chapter",
+  "Panit-an Chapter",
+  "Maayon Chapter",
+  "Pontevedra Chapter",
+  "Dao Chapter",
+  "Dumarao Chapter",
+] as const;
 type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
 interface PgpMemberBody {
@@ -37,6 +46,7 @@ interface PgpMemberBody {
   status?: string;
   officerPosition?: string;
   officerDateElected?: string;
+  formerPresidentChapter?: string;
   formerPresidentStart?: string;
   formerPresidentEnd?: string;
   formerMasterInitiatorStart?: string;
@@ -108,10 +118,21 @@ export async function POST(request: Request) {
     const isFormerPresident = body.status === "Former Chapter President";
     if (
       isFormerPresident &&
-      (!isNonEmptyString(body.formerPresidentStart) || !isNonEmptyString(body.formerPresidentEnd))
+      (!isNonEmptyString(body.formerPresidentChapter) ||
+        !isNonEmptyString(body.formerPresidentStart) ||
+        !isNonEmptyString(body.formerPresidentEnd))
     ) {
       return NextResponse.json(
         { error: "Both the date started and date ended are required for a former chapter president." },
+        { status: 400 },
+      );
+    }
+    if (
+      isFormerPresident &&
+      !PGPGS_CHAPTERS.includes(body.formerPresidentChapter as (typeof PGPGS_CHAPTERS)[number])
+    ) {
+      return NextResponse.json(
+        { error: "Please select a valid PGPGS chapter." },
         { status: 400 },
       );
     }
@@ -172,6 +193,7 @@ export async function POST(request: Request) {
           status: body.status as MemberStatus,
           officerPosition: isOfficer ? body.officerPosition! : null,
           officerDateElected: isOfficer ? body.officerDateElected! : null,
+          formerPresidentChapter: isFormerPresident ? body.formerPresidentChapter! : null,
           formerPresidentStart: isFormerPresident ? body.formerPresidentStart! : null,
           formerPresidentEnd: isFormerPresident ? body.formerPresidentEnd! : null,
           formerMasterInitiatorStart: isFormerMasterInitiator ? body.formerMasterInitiatorStart! : null,

@@ -27,6 +27,16 @@ const positions = [
   "Lady Initiator III",
 ] as const;
 
+const chapters = [
+  "Roxas City Capiz Chapter",
+  "Panay Chapter",
+  "Panit-an Chapter",
+  "Maayon Chapter",
+  "Pontevedra Chapter",
+  "Dao Chapter",
+  "Dumarao Chapter",
+] as const;
+
 type MemberFormData = {
   firstName: string;
   lastName: string;
@@ -55,6 +65,7 @@ type MemberFormData = {
     | "Grand Knights";
   officerPosition: string;
   officerDateElected: string;
+  formerPresidentChapter: string;
   formerPresidentStart: string;
   formerPresidentEnd: string;
   formerMasterInitiatorStart: string;
@@ -84,6 +95,7 @@ const initialData: MemberFormData = {
   status: "Member",
   officerPosition: "",
   officerDateElected: "",
+  formerPresidentChapter: "",
   formerPresidentStart: "",
   formerPresidentEnd: "",
   formerMasterInitiatorStart: "",
@@ -282,7 +294,9 @@ export default function MemberRegisterPage() {
     }
     if (
       formData.status === "Former Chapter President" &&
-      (!formData.formerPresidentStart || !formData.formerPresidentEnd)
+      (!formData.formerPresidentChapter ||
+        !formData.formerPresidentStart ||
+        !formData.formerPresidentEnd)
     ) {
       setSubmissionError(
         "Please provide both the date started and date ended as former chapter president.",
@@ -471,6 +485,23 @@ return (
               <p className="text-xs font-bold tracking-[0.2em] text-[var(--gold)] uppercase">04B / Former president details</p>
               <h2 className="mt-2 font-serif text-2xl font-semibold text-[var(--green-dark)]">Former Chapter President Information</h2>
               <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                <label className="block text-sm font-semibold text-[var(--green-dark)] sm:col-span-2">
+                  PGPGS Chapter
+                  <select
+                    className={selectClass}
+                    name="formerPresidentChapter"
+                    value={formData.formerPresidentChapter}
+                    onChange={(event) => updateField("formerPresidentChapter", event.target.value)}
+                    required
+                  >
+                    <option value="">Select chapter</option>
+                    {chapters.map((chapter) => (
+                      <option key={chapter} value={chapter}>
+                        {chapter}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <Field label="Date Started" name="formerPresidentStart" type="date" value={formData.formerPresidentStart} onChange={updateField} required />
                 <Field label="Date Ended" name="formerPresidentEnd" type="date" value={formData.formerPresidentEnd} onChange={updateField} required />
               </div>

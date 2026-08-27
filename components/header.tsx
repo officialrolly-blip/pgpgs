@@ -177,9 +177,7 @@ function DesktopItem({
   }
 
   const isOpen = openMenu === item.label;
-  const childActive = item.children.some(
-    (child) => pathname === child.href,
-  );
+  const childActive = item.children.some((child) => hasActiveRoute(child, pathname));
 
   return (
     <div
@@ -209,19 +207,13 @@ function DesktopItem({
           role="menu"
         >
           {item.children.map((child) => (
-            <li key={child.href} role="none">
-              <Link
-                href={child.href}
-                role="menuitem"
-                className={`block px-4 py-2.5 text-sm transition hover:bg-white/10 hover:text-[var(--gold)] ${
-                  pathname === child.href
-                    ? "bg-white/10 text-[var(--gold)]"
-                    : "text-white/90"
-                }`}
-              >
-                {child.label}
-              </Link>
-            </li>
+            <DesktopChild
+              key={child.label}
+              item={child}
+              pathname={pathname}
+              openMenu={openMenu}
+              setOpenMenu={setOpenMenu}
+            />
           ))}
         </ul>
       </div>
@@ -269,22 +261,121 @@ function MobileItem({
       {isOpen ? (
         <ul className="mb-2 ml-3 space-y-1 border-l border-[var(--gold)]/40 pl-3">
           {item.children.map((child) => (
-            <li key={child.href}>
-              <Link
-                href={child.href}
-                className={`block rounded-md px-3 py-2 text-sm ${
-                  pathname === child.href
-                    ? "text-[var(--gold)]"
-                    : "text-white/80"
-                }`}
-              >
-                {child.label}
-              </Link>
-            </li>
+            <MobileChild
+              key={child.label}
+              item={child}
+              pathname={pathname}
+              openMenu={openMenu}
+              setOpenMenu={setOpenMenu}
+            />
           ))}
         </ul>
       ) : null}
     </div>
+  );
+}
+
+function hasActiveRoute(item: NavItem, pathname: string): boolean {
+  return isNavGroup(item)
+    ? item.children.some((child) => hasActiveRoute(child, pathname))
+    : pathname === item.href;
+}
+
+function DesktopChild({
+  item,
+  pathname,
+  openMenu,
+  setOpenMenu,
+}: {
+  item: NavItem;
+  pathname: string;
+  openMenu: string | null;
+  setOpenMenu: (label: string | null) => void;
+}) {
+  if (!isNavGroup(item)) {
+    return (
+      <li role="none">
+        <Link
+          href={item.href}
+          role="menuitem"
+          className={`block px-4 py-2.5 text-sm transition hover:bg-white/10 hover:text-[var(--gold)] ${
+            pathname === item.href ? "bg-white/10 text-[var(--gold)]" : "text-white/90"
+          }`}
+        >
+          {item.label}
+        </Link>
+      </li>
+    );
+  }
+
+  const isOpen = openMenu === item.label;
+  return (
+    <li className="relative" role="none" onMouseEnter={() => setOpenMenu(item.label)}>
+      <button
+        type="button"
+        role="menuitem"
+        className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition hover:bg-white/10 hover:text-[var(--gold)] ${hasActiveRoute(item, pathname) || isOpen ? "text-[var(--gold)]" : "text-white/90"}`}
+        aria-expanded={isOpen}
+        onClick={() => setOpenMenu(isOpen ? null : item.label)}
+      >
+        {item.label}
+        <Chevron open={isOpen} />
+      </button>
+      {isOpen ? (
+        <ul className="absolute left-full top-0 min-w-[230px] rounded-xl border border-[var(--gold)]/40 bg-[var(--army-green-dark)] py-2 shadow-[0_18px_40px_rgba(58,65,24,0.35)]" role="menu">
+          {item.children.map((child) => (
+            <DesktopChild key={child.label} item={child} pathname={pathname} openMenu={openMenu} setOpenMenu={setOpenMenu} />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function MobileChild({
+  item,
+  pathname,
+  openMenu,
+  setOpenMenu,
+}: {
+  item: NavItem;
+  pathname: string;
+  openMenu: string | null;
+  setOpenMenu: (label: string | null) => void;
+}) {
+  if (!isNavGroup(item)) {
+    return (
+      <li>
+        <Link
+          href={item.href}
+          className={`block rounded-md px-3 py-2 text-sm ${pathname === item.href ? "text-[var(--gold)]" : "text-white/80"}`}
+        >
+          {item.label}
+        </Link>
+      </li>
+    );
+  }
+
+  const isOpen = openMenu === item.label;
+  return (
+    <li>
+      <button
+        type="button"
+        className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${hasActiveRoute(item, pathname) || isOpen ? "text-[var(--gold)]" : "text-white/80"}`}
+        aria-expanded={isOpen}
+        onClick={() => setOpenMenu(isOpen ? null : item.label)}
+      >
+        {item.label}
+        <Chevron open={isOpen} />
+      </button>
+      {isOpen ? (
+        <ul className="ml-3 border-l border-[var(--gold)]/30 pl-2" role="menu">
+          {item.children.map((child) => (
+            <MobileChild key={child.label} item={child} pathname={pathname} openMenu={openMenu} setOpenMenu={setOpenMenu} />
+          ))}
+        </ul>
+      ) : null}
+    </li>
   );
 }
 

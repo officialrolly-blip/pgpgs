@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 
 export const metadata: Metadata = { title: "Former Chapter President" };
+export const dynamic = "force-dynamic";
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
@@ -25,6 +26,7 @@ export default async function Page() {
       firstName: pgpmembers.firstName,
       lastName: pgpmembers.lastName,
       middleInitial: pgpmembers.middleInitial,
+      chapter: pgpmembers.formerPresidentChapter,
       dateStarted: pgpmembers.formerPresidentStart,
       dateEnded: pgpmembers.formerPresidentEnd,
       photoUrl: pgpmembers.photoUrl,
@@ -37,7 +39,13 @@ export default async function Page() {
     <PageShell title="Former Chapter President">
       <div className="mb-10 max-w-2xl">
         <p className="text-base leading-7">
-          Honoring the brothers who have served as Chapter President.
+          Honoring the brothers and sisters who have served as Chapter President
+          and carried the responsibility of guiding the PGPGS Roxas City Capiz
+          Chapter. Their leadership, dedication, and commitment to fellowship,
+          service, and excellence helped strengthen our organization and shape
+          the tradition we continue to uphold today. This page remembers their
+          contribution and celebrates the legacy they have entrusted to the
+          generations that followed.
         </p>
       </div>
       {formerPresidents.length === 0 ? (
@@ -76,6 +84,14 @@ export default async function Page() {
                 {president.firstName} {president.middleInitial ? `${president.middleInitial}. ` : ""}{president.lastName}
               </h2>
               <div className="mt-4 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 text-sm">
+                <div className="col-span-2">
+                  <p className="text-xs uppercase tracking-[0.14em] text-black/45">
+                    PGPGS Chapter
+                  </p>
+                  <p className="mt-1 font-semibold text-[var(--green-dark)]">
+                    {president.chapter || ""}
+                  </p>
+                </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.14em] text-black/45">
                     Served from

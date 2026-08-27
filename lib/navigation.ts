@@ -5,7 +5,7 @@ export type NavLink = {
 
 export type NavItem = NavLink | {
   label: string;
-  children: NavLink[];
+  children: NavItem[];
 };
 
 export const navigation: NavItem[] = [
@@ -24,6 +24,10 @@ export const navigation: NavItem[] = [
       {
         label: "Former Chapter President",
         href: "/officials/former-chapter-president",
+      },
+      {
+        label: "Former Chapter Vice President",
+        href: "/officials/former-chapter-vice-president",
       },
       {
         label: "Former Master Initiator",
@@ -83,6 +87,6 @@ export const cta = {
 
 export function isNavGroup(
   item: NavItem,
-): item is { label: string; children: NavLink[] } {
+): item is { label: string; children: NavItem[] } {
   return "children" in item;
 }
