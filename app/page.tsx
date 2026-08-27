@@ -1,6 +1,10 @@
 import HeroSlider from "@/components/hero-slider";
+import OfficerMarquee, { type HomepageOfficer } from "@/components/officer-marquee";
 import Image from "next/image";
 import Link from "next/link";
+import { asc, eq } from "drizzle-orm";
+import { db } from "@/db";
+import { pgpmembers } from "@/db/schema";
 
 const newsAndEvents = [
   {
@@ -32,7 +36,22 @@ const newsAndEvents = [
   },
 ];
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const officers: HomepageOfficer[] = await db
+    .select({
+      id: pgpmembers.id,
+      firstName: pgpmembers.firstName,
+      middleInitial: pgpmembers.middleInitial,
+      lastName: pgpmembers.lastName,
+      position: pgpmembers.officerPosition,
+      photoUrl: pgpmembers.photoUrl,
+    })
+    .from(pgpmembers)
+    .where(eq(pgpmembers.status, "PGP-GS Roxas City Chapter Officer"))
+    .orderBy(asc(pgpmembers.createdAt));
+
   return (
     <main className="flex flex-1 flex-col bg-background">
       <HeroSlider />
@@ -69,6 +88,31 @@ export default function Home() {
               sizes="(max-width: 1024px) 80vw, 42vw"
               className="relative z-10 max-h-[270px] w-auto object-contain sm:max-h-[350px] lg:max-h-[400px]"
             />
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden bg-[var(--army-green)] px-6 py-20 text-white sm:px-10 sm:py-24 lg:px-16" aria-labelledby="officers-heading">
+        <div className="mx-auto max-w-[1440px]">
+          <div className="flex flex-col justify-between gap-6 border-b border-white/20 pb-8 sm:flex-row sm:items-end">
+            <div className="max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--gold-light)]">
+                Leadership in motion
+              </p>
+              <h2 id="officers-heading" className="mt-3 font-serif text-4xl font-semibold leading-none sm:text-6xl">
+                Meet Our Newly Elected Officers
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-white/65 sm:text-base">
+                Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter officers serving with purpose, fellowship, and care.
+              </p>
+            </div>
+            <Link href="/officials/roxas-city-chapter-officers" className="inline-flex shrink-0 items-center gap-3 text-sm font-semibold text-[var(--gold-light)] transition hover:text-white">
+              View all officers
+              <span aria-hidden="true" className="text-lg leading-none">→</span>
+            </Link>
+          </div>
+          <div className="mt-10">
+            <OfficerMarquee officers={officers} />
           </div>
         </div>
       </section>

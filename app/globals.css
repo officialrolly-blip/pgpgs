@@ -33,3 +33,22 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+@keyframes officer-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.officer-marquee-track {
+  animation: officer-marquee 36s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .officer-marquee-track {
+    animation: none;
+  }
+}
