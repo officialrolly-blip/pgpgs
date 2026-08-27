@@ -62,7 +62,7 @@ export default function Home() {
           <div className="relative flex min-h-[290px] items-center justify-center overflow-hidden bg-[var(--green-soft)] px-10 py-10 sm:min-h-[380px] lg:min-h-[440px]">
             <div className="absolute inset-5 border border-[var(--gold)]/35" />
             <Image
-              src="/PI GAMMA PHI.png"
+              src="/images.jpg"
               alt="Pi Gamma Phi Gamma Sigma fraternity emblem"
               width={650}
               height={650}

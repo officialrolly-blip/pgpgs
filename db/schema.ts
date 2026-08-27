@@ -1,0 +1,72 @@
+import {
+  boolean,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+export const pgpmembers = pgTable("pgpmembers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  memberId: text("member_id").notNull().unique(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  middleInitial: text("middle_initial"),
+  age: integer("age").notNull(),
+  dateOfBirth: text("date_of_birth").notNull(),
+  placeOfBirth: text("place_of_birth").notNull(),
+  street: text("street").notNull(),
+  barangay: text("barangay").notNull(),
+  municipality: text("municipality").notNull(),
+  province: text("province").notNull(),
+  email: text("email").notNull(),
+  contactNumber: text("contact_number").notNull(),
+  guardianName: text("guardian_name").notNull(),
+  guardianAddress: text("guardian_address").notNull(),
+  guardianContact: text("guardian_contact").notNull(),
+  baptizedName: text("baptized_name").notNull(),
+  dateSurvived: text("date_survived").notNull(),
+  status: text("status").notNull(), // Member or Alumni
+  officerPosition: text("officer_position"),
+  officerDateElected: text("officer_date_elected"),
+  formerPresidentStart: text("former_president_start"),
+  formerPresidentEnd: text("former_president_end"),
+  grandKnight: text("grand_knight"),
+  photoUrl: text("photo_url"),
+  hasPhoto: boolean("has_photo").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const registrations = pgTable("registrations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  memberId: text("member_id").notNull().unique(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  middleInitial: text("middle_initial"),
+  age: integer("age").notNull(),
+  gender: text("gender").notNull(),
+  dateOfBirth: text("date_of_birth").notNull(),
+  placeOfBirth: text("place_of_birth").notNull(),
+  street: text("street").notNull(),
+  barangay: text("barangay").notNull(),
+  municipality: text("municipality").notNull(),
+  province: text("province").notNull(),
+  guardianName: text("guardian_name").notNull(),
+  guardianAddress: text("guardian_address").notNull(),
+  guardianContact: text("guardian_contact").notNull(),
+  guardianRelationship: text("guardian_relationship").notNull(),
+  studying: text("studying").notNull(),
+  schoolName: text("school_name").notNull(),
+  schoolAddress: text("school_address"),
+  schoolYear: text("school_year"),
+  educationalAttainment: text("educational_attainment"),
+  email: text("email").notNull().unique(),
+  contactNumber: text("contact_number").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
