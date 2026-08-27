@@ -1,58 +1,58 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import PageShell from "@/components/page-shell";
+import { asc, eq } from "drizzle-orm";
+import { db } from "@/db";
+import { pgpmembers } from "@/db/schema";
 
 export const metadata: Metadata = {
   title: "PGPGS Roxas City Capiz Chapter Officers",
 };
 
-const chapterOfficers = [
-  {
-    name: "Name to be updated",
-    position: "Chapter President",
-    image:
-      "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=85",
-  },
-  {
-    name: "Name to be updated",
-    position: "Vice President",
-    image:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=85",
-  },
-  {
-    name: "Name to be updated",
-    position: "Secretary",
-    image:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=85",
-  },
-  {
-    name: "Name to be updated",
-    position: "Treasurer",
-    image:
-      "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=800&q=85",
-  },
-  {
-    name: "Name to be updated",
-    position: "Auditor",
-    image:
-      "https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=800&q=85",
-  },
-  {
-    name: "Name to be updated",
-    position: "Public Relations Officer",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=85",
-  },
-];
+export const dynamic = "force-dynamic";
 
-export default function Page() {
+const officerPositions = [
+  "President",
+  "Vice President Internal",
+  "Vice President External",
+  "Treasurer",
+  "Secretary",
+  "Auditor",
+  "Master Initiator I",
+  "Master Initiator II",
+  "Master Initiator III",
+  "Master Initiator IV",
+  "Lady Initiator I",
+  "Lady Initiator II",
+  "Lady Initiator III",
+] as const;
+
+export default async function Page() {
+  const registeredOfficers = await db
+    .select({
+      id: pgpmembers.id,
+      firstName: pgpmembers.firstName,
+      middleInitial: pgpmembers.middleInitial,
+      lastName: pgpmembers.lastName,
+      position: pgpmembers.officerPosition,
+      photoUrl: pgpmembers.photoUrl,
+    })
+    .from(pgpmembers)
+    .where(eq(pgpmembers.status, "PGP-GS Roxas City Chapter Officer"))
+    .orderBy(asc(pgpmembers.createdAt));
+
+  const chapterOfficers = officerPositions.map((position) => ({
+    position,
+    member: registeredOfficers.find((officer) => officer.position === position),
+  }));
+
   return (
     <PageShell title="PGPGS Roxas City Capiz Chapter Officers">
       <div className="mb-10 max-w-2xl">
         <p className="text-base leading-7">
           Meet the elected officers of the PGPGS Roxas City Capiz Chapter.
-          Official names and portraits can be added to each profile as the
-          chapter directory is confirmed.
+          Registered officers and their portraits appear here automatically from
+          the chapter member directory.
         </p>
       </div>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -62,13 +62,15 @@ export default function Page() {
             className="overflow-hidden border border-black/10 bg-white shadow-[0_12px_28px_rgba(15,61,38,0.08)]"
           >
             <div className="relative aspect-[4/5] bg-[var(--green-soft)]">
-              <Image
-                src={officer.image}
-                alt={`${officer.name}, ${officer.position}`}
-                fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                className="object-cover"
-              />
+              {officer.member?.photoUrl ? (
+                <Image
+                  src={officer.member.photoUrl}
+                  alt={`${officer.member.firstName} ${officer.member.lastName}, ${officer.position}`}
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="object-cover object-top"
+                />
+              ) : null}
               <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(transparent,rgba(15,61,38,0.72))] px-5 pb-5 pt-16">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold-light)]">
                   {officer.position}
@@ -77,9 +79,13 @@ export default function Page() {
             </div>
             <div className="px-5 py-5">
               <h2 className="font-serif text-2xl font-semibold text-[var(--green-dark)]">
-                {officer.name}
+                {officer.member
+                  ? `${officer.member.firstName} ${officer.member.middleInitial ? `${officer.member.middleInitial}. ` : ""}${officer.member.lastName}`
+                  : ""}
               </h2>
-              <p className="mt-1 text-sm text-black/55">Elected officer</p>
+              <p className="mt-1 text-sm text-black/55">
+                {officer.member ? "Elected officer" : ""}
+              </p>
             </div>
           </article>
         ))}
