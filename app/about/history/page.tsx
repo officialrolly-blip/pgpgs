@@ -21,7 +21,7 @@ export default function Page() {
         <figure className="float-right mb-8 ml-8 mt-1 w-44 sm:w-60">
           <div className="border border-[var(--gold)]/40 bg-[var(--green-soft)] p-3 shadow-[0_12px_28px_rgba(15,61,38,0.1)] sm:p-5">
             <Image
-              src="/PI GAMMA PHI.png"
+              src="/pgpgs.webp"
               alt="Official Pi Gamma Phi 1975 Gamma Sigma logo"
               width={650}
               height={650}

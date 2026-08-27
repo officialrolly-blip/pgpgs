@@ -50,11 +50,17 @@ type MemberFormData = {
     | "Alumni"
     | "PGP-GS Roxas City Chapter Officer"
     | "Former Chapter President"
+    | "Former Chapter Master Initiator"
+    | "Former Chapter Lady Initiator"
     | "Grand Knights";
   officerPosition: string;
   officerDateElected: string;
   formerPresidentStart: string;
   formerPresidentEnd: string;
+  formerMasterInitiatorStart: string;
+  formerMasterInitiatorEnd: string;
+  formerLadyInitiatorStart: string;
+  formerLadyInitiatorEnd: string;
 };
 
 const initialData: MemberFormData = {
@@ -80,6 +86,10 @@ const initialData: MemberFormData = {
   officerDateElected: "",
   formerPresidentStart: "",
   formerPresidentEnd: "",
+  formerMasterInitiatorStart: "",
+  formerMasterInitiatorEnd: "",
+  formerLadyInitiatorStart: "",
+  formerLadyInitiatorEnd: "",
 };
 
 function capitalizeWords(value: string) {
@@ -279,6 +289,24 @@ export default function MemberRegisterPage() {
       );
       return;
     }
+    if (
+      formData.status === "Former Chapter Master Initiator" &&
+      (!formData.formerMasterInitiatorStart || !formData.formerMasterInitiatorEnd)
+    ) {
+      setSubmissionError(
+        "Please provide both the date started and date ended as former chapter Master Initiator.",
+      );
+      return;
+    }
+    if (
+      formData.status === "Former Chapter Lady Initiator" &&
+      (!formData.formerLadyInitiatorStart || !formData.formerLadyInitiatorEnd)
+    ) {
+      setSubmissionError(
+        "Please provide both the date started and date ended as former chapter Lady Initiator.",
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -382,6 +410,8 @@ return (
                 <option>Alumni</option>
                 <option>PGP-GS Roxas City Chapter Officer</option>
                 <option>Former Chapter President</option>
+                <option>Former Chapter Master Initiator</option>
+                <option>Former Chapter Lady Initiator</option>
                 <option>Grand Knights</option>
               </select>
             </label>
@@ -410,6 +440,28 @@ return (
                   </select>
                 </label>
                 <Field label="Date Elected" name="officerDateElected" type="date" value={formData.officerDateElected} onChange={updateField} required />
+              </div>
+            </section>
+          ) : null}
+
+          {formData.status === "Former Chapter Master Initiator" ? (
+            <section className="border-t border-black/10 pt-8">
+              <p className="text-xs font-bold tracking-[0.2em] text-[var(--gold)] uppercase">04C / Former Master Initiator details</p>
+              <h2 className="mt-2 font-serif text-2xl font-semibold text-[var(--green-dark)]">Former Chapter Master Initiator Information</h2>
+              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                <Field label="Date Started" name="formerMasterInitiatorStart" type="date" value={formData.formerMasterInitiatorStart} onChange={updateField} required />
+                <Field label="Date Ended" name="formerMasterInitiatorEnd" type="date" value={formData.formerMasterInitiatorEnd} onChange={updateField} required />
+              </div>
+            </section>
+          ) : null}
+
+          {formData.status === "Former Chapter Lady Initiator" ? (
+            <section className="border-t border-black/10 pt-8">
+              <p className="text-xs font-bold tracking-[0.2em] text-[var(--gold)] uppercase">04D / Former Lady Initiator details</p>
+              <h2 className="mt-2 font-serif text-2xl font-semibold text-[var(--green-dark)]">Former Chapter Lady Initiator Information</h2>
+              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                <Field label="Date Started" name="formerLadyInitiatorStart" type="date" value={formData.formerLadyInitiatorStart} onChange={updateField} required />
+                <Field label="Date Ended" name="formerLadyInitiatorEnd" type="date" value={formData.formerLadyInitiatorEnd} onChange={updateField} required />
               </div>
             </section>
           ) : null}

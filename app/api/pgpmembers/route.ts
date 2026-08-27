@@ -10,6 +10,8 @@ const MEMBER_STATUSES = [
   "Alumni",
   "PGP-GS Roxas City Chapter Officer",
   "Former Chapter President",
+  "Former Chapter Master Initiator",
+  "Former Chapter Lady Initiator",
   "Grand Knights",
 ] as const;
 type MemberStatus = (typeof MEMBER_STATUSES)[number];
@@ -37,6 +39,10 @@ interface PgpMemberBody {
   officerDateElected?: string;
   formerPresidentStart?: string;
   formerPresidentEnd?: string;
+  formerMasterInitiatorStart?: string;
+  formerMasterInitiatorEnd?: string;
+  formerLadyInitiatorStart?: string;
+  formerLadyInitiatorEnd?: string;
   grandKnight?: string;
   photoUrl?: string;
   hasPhoto?: boolean;
@@ -110,6 +116,28 @@ export async function POST(request: Request) {
       );
     }
 
+    const isFormerMasterInitiator = body.status === "Former Chapter Master Initiator";
+    if (
+      isFormerMasterInitiator &&
+      (!isNonEmptyString(body.formerMasterInitiatorStart) || !isNonEmptyString(body.formerMasterInitiatorEnd))
+    ) {
+      return NextResponse.json(
+        { error: "Both the date started and date ended are required for a former chapter Master Initiator." },
+        { status: 400 },
+      );
+    }
+
+    const isFormerLadyInitiator = body.status === "Former Chapter Lady Initiator";
+    if (
+      isFormerLadyInitiator &&
+      (!isNonEmptyString(body.formerLadyInitiatorStart) || !isNonEmptyString(body.formerLadyInitiatorEnd))
+    ) {
+      return NextResponse.json(
+        { error: "Both the date started and date ended are required for a former chapter Lady Initiator." },
+        { status: 400 },
+      );
+    }
+
     const email = body.email!.trim().toLowerCase();
     const existing = await db.select({ id: pgpmembers.id }).from(pgpmembers).where(eq(pgpmembers.email, email)).limit(1);
     if (existing.length > 0) {
@@ -146,6 +174,10 @@ export async function POST(request: Request) {
           officerDateElected: isOfficer ? body.officerDateElected! : null,
           formerPresidentStart: isFormerPresident ? body.formerPresidentStart! : null,
           formerPresidentEnd: isFormerPresident ? body.formerPresidentEnd! : null,
+          formerMasterInitiatorStart: isFormerMasterInitiator ? body.formerMasterInitiatorStart! : null,
+          formerMasterInitiatorEnd: isFormerMasterInitiator ? body.formerMasterInitiatorEnd! : null,
+          formerLadyInitiatorStart: isFormerLadyInitiator ? body.formerLadyInitiatorStart! : null,
+          formerLadyInitiatorEnd: isFormerLadyInitiator ? body.formerLadyInitiatorEnd! : null,
           grandKnight: isNonEmptyString(body.grandKnight) ? body.grandKnight : null,
           photoUrl: isNonEmptyString(body.photoUrl) ? body.photoUrl : null,
           hasPhoto: Boolean(body.hasPhoto),
