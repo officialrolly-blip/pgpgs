@@ -44,6 +44,7 @@ export const metadata: Metadata = {
   creator: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter",
   publisher: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter",
   category: "organization",
+  icons: "/favicon.ico",
   alternates: {
     canonical: "/",
   },

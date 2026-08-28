@@ -52,6 +52,14 @@ export default async function Home() {
     .where(eq(pgpmembers.status, "PGP-GS Roxas City Chapter Officer"))
     .orderBy(asc(pgpmembers.createdAt));
 
+  const president = officers.find((officer) => officer.position === "President");
+  const presidentPhotoUrl =
+    president?.photoUrl ??
+    "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1200&q=85";
+  const presidentAlt = president
+    ? `${president.firstName} ${president.lastName}, Chapter President`
+    : "Chapter President portrait placeholder";
+
   return (
     <main className="flex flex-1 flex-col bg-background">
       <HeroSlider />
@@ -185,16 +193,18 @@ export default async function Home() {
 
           <div className="relative min-h-[360px] overflow-hidden bg-[var(--army-green)] sm:min-h-[460px]">
             <Image
-              src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1200&q=85"
-              alt="Temporary portrait placeholder for the newly elected chapter president"
+              src={presidentPhotoUrl}
+              alt={presidentAlt}
               fill
               sizes="(max-width: 1024px) 100vw, 42vw"
-              className="object-cover object-center"
+              className="object-cover object-top"
             />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgba(15,61,38,0.55)_100%)]" />
-            <p className="absolute bottom-6 left-6 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              Temporary portrait
-            </p>
+            {president ? null : (
+              <p className="absolute bottom-6 left-6 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
+                Temporary portrait
+              </p>
+            )}
           </div>
         </div>
       </section>
