@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 
 type SearchMember = {
@@ -60,8 +60,10 @@ export default function MemberIdPage() {
   const [loginMemberId, setLoginMemberId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
-  const [idImageUrl, setIdImageUrl] = useState<string | null>(null);
-  const idCardRef = useRef<HTMLDivElement>(null);
+  const [idFrontImageUrl, setIdFrontImageUrl] = useState<string | null>(null);
+  const [idBackImageUrl, setIdBackImageUrl] = useState<string | null>(null);
+  const idCardFrontRef = useRef<HTMLDivElement>(null);
+  const idCardBackRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,24 +146,37 @@ export default function MemberIdPage() {
   }, [loginMemberId, loginPassword]);
 
   const captureIdCard = useCallback(async () => {
-    if (!idCardRef.current) return;
-    try {
-      const canvas = await html2canvas(idCardRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        logging: false,
-        ignoreElements: (element) => {
-          // Skip elements that might have oklab colors
-          const style = window.getComputedStyle(element);
-          return style.color.includes('oklab') || style.backgroundColor.includes('oklab');
-        },
-      });
-      const imageUrl = canvas.toDataURL("image/png");
-      setIdImageUrl(imageUrl);
-    } catch (error) {
-      console.error("Failed to capture ID card:", error);
+    // Capture front face
+    if (idCardFrontRef.current) {
+      try {
+        const canvas = await html2canvas(idCardFrontRef.current, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+          logging: false,
+        });
+        const imageUrl = canvas.toDataURL("image/png");
+        setIdFrontImageUrl(imageUrl);
+      } catch (error) {
+        console.error("Failed to capture front ID card:", error);
+      }
+    }
+    // Capture back face
+    if (idCardBackRef.current) {
+      try {
+        const canvas = await html2canvas(idCardBackRef.current, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+          logging: false,
+        });
+        const imageUrl = canvas.toDataURL("image/png");
+        setIdBackImageUrl(imageUrl);
+      } catch (error) {
+        console.error("Failed to capture back ID card:", error);
+      }
     }
   }, []);
 
@@ -278,12 +293,12 @@ export default function MemberIdPage() {
               <button type="button" onClick={() => setFlipped((p) => !p)} className="rounded-lg border border-[#d9ceb3] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#5a6b5f] transition hover:bg-[#f7f2e6]">{flipped ? "View Front" : "View Back"}</button>
               <button type="button" onClick={logout} className="rounded-lg border border-red-200 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-red-600 transition hover:bg-red-50">Sign Out</button>
             </div>
-            {idImageUrl ? (
+             {idFrontImageUrl && idBackImageUrl ? (
               <div className="mx-auto w-full max-w-[430px]">
-                <Image src={idImageUrl} alt="Digital ID Card" width={430} height={272} className="w-full rounded-2xl shadow-xl" />
+                <Image src={flipped ? idBackImageUrl : idFrontImageUrl} alt="Digital ID Card" width={430} height={272} className="w-full rounded-2xl shadow-xl" />
               </div>
             ) : (
-              <DigitalIdCard ref={idCardRef} member={idMember} flipped={flipped} />
+              <DigitalIdCard frontRef={idCardFrontRef} backRef={idCardBackRef} member={idMember} flipped={flipped} />
             )}
             <p className="mt-4 text-center text-[10px] text-[#8a7b52]">This is your official PGPGS digital membership ID. You may be asked to present it for verification.</p>
           </div>
@@ -293,22 +308,27 @@ export default function MemberIdPage() {
   );
 }
 
-const DigitalIdCard = forwardRef<HTMLDivElement, { member: IdMember; flipped: boolean }>(({ member, flipped }, ref) => {
+type DigitalIdCardProps = {
+  member: IdMember;
+  flipped: boolean;
+  frontRef?: React.RefObject<HTMLDivElement | null>;
+  backRef?: React.RefObject<HTMLDivElement | null>;
+};
+
+const DigitalIdCard = ({ member, flipped, frontRef, backRef }: DigitalIdCardProps) => {
   return (
-    <div ref={ref} className="id-card-perspective mx-auto w-full max-w-[430px] select-none" style={{ aspectRatio: "85.6 / 53.98" }}>
+    <div className="id-card-perspective mx-auto w-full max-w-[430px] select-none" style={{ aspectRatio: "85.6 / 53.98" }}>
       <div className="id-card-inner relative h-full w-full transition-transform duration-700" style={{ transformStyle: "preserve-3d", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
-        <div className="id-card-front absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
+        <div ref={frontRef} className="id-card-front absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
           <IdCardFront member={member} />
         </div>
-        <div className="id-card-back absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
+        <div ref={backRef} className="id-card-back absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
           <IdCardBack member={member} />
         </div>
       </div>
     </div>
   );
-});
-
-DigitalIdCard.displayName = "DigitalIdCard";
+};
 
 function DetailCard({ label, value, large }: { label: string; value: string; large?: boolean }) {
   return (
