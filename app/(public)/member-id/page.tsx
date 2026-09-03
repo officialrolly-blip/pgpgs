@@ -317,16 +317,24 @@ type DigitalIdCardProps = {
 
 const DigitalIdCard = ({ member, flipped, frontRef, backRef }: DigitalIdCardProps) => {
   return (
-    <div className="id-card-perspective mx-auto w-full max-w-[430px] select-none" style={{ aspectRatio: "85.6 / 53.98" }}>
-      <div className="id-card-inner relative h-full w-full transition-transform duration-700" style={{ transformStyle: "preserve-3d", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
-        <div ref={frontRef} className="id-card-front absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
-          <IdCardFront member={member} />
-        </div>
-        <div ref={backRef} className="id-card-back absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
+    <>
+      {/* Hidden element for capturing back face without rotation */}
+      <div style={{ position: "fixed", left: "-9999px", top: "-9999px" }}>
+        <div ref={backRef} style={{ width: "430px", height: "272px", overflow: "hidden", borderRadius: "16px" }}>
           <IdCardBack member={member} />
         </div>
       </div>
-    </div>
+      <div className="id-card-perspective mx-auto w-full max-w-[430px] select-none" style={{ aspectRatio: "85.6 / 53.98" }}>
+        <div className="id-card-inner relative h-full w-full transition-transform duration-700" style={{ transformStyle: "preserve-3d", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
+          <div ref={frontRef} className="id-card-front absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
+            <IdCardFront member={member} />
+          </div>
+          <div className="id-card-back absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
+            <IdCardBack member={member} />
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 
