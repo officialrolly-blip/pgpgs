@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s | PGPGS Roxas City",
   },
   description:
-    "Official website of Pi Gamma Phi Gamma Sigma, Roxas City Capiz Chapter: a brotherhood and sisterhood founded on unity, service, leadership, and moral excellence.",
+    "Official website of Pi Gamma Phi Gamma Sigma, Roxas City Capiz Chapter: a brotherhood and sisterhood founded on unity, service, leadership, and moral excellence. Join our community service initiatives and discover our rich history.",
   keywords: [
     "Pi Gamma Phi",
     "Gamma Sigma",
@@ -36,6 +36,8 @@ export const metadata: Metadata = {
     "Pi Gamma Phi history",
     "fraternity and sorority Philippines",
     "community service Roxas City",
+    "brotherhood sisterhood Capiz",
+    "PGPGS membership",
   ],
   applicationName: "PGPGS Roxas City",
   authors: [{ name: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter" }],
@@ -52,22 +54,22 @@ export const metadata: Metadata = {
     siteName: "PGPGS Roxas City",
     title: "Pi Gamma Phi Gamma Sigma | Roxas City Capiz Chapter",
     description:
-      "Discover the history, brotherhood, community service, officials, and alumni of Pi Gamma Phi Gamma Sigma in Roxas City, Capiz.",
+      "Official website of Pi Gamma Phi Gamma Sigma, Roxas City Capiz Chapter. A brotherhood and sisterhood founded on unity, service, leadership, and moral excellence. Discover our history, community service, officials, and alumni.",
     images: [
       {
-        url: "/PI GAMMA PHI.png",
-        width: 650,
-        height: 650,
-        alt: "Official Pi Gamma Phi 1975 Gamma Sigma logo",
+        url: "/PI-GAMMA-PHI.png",
+        width: 1200,
+        height: 630,
+        alt: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter Logo",
       },
     ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Pi Gamma Phi Gamma Sigma | Roxas City Capiz Chapter",
     description:
-      "A brotherhood and sisterhood founded on unity, service, leadership, and moral excellence.",
-    images: ["/PI GAMMA PHI.png"],
+      "A brotherhood and sisterhood founded on unity, service, leadership, and moral excellence. Discover our history, community service, and membership.",
+    images: ["/PI-GAMMA-PHI.png"],
   },
   robots: {
     index: true,
