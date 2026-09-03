@@ -151,6 +151,12 @@ export default function MemberIdPage() {
         useCORS: true,
         allowTaint: true,
         backgroundColor: null,
+        logging: false,
+        ignoreElements: (element) => {
+          // Skip elements that might have oklab colors
+          const style = window.getComputedStyle(element);
+          return style.color.includes('oklab') || style.backgroundColor.includes('oklab');
+        },
       });
       const imageUrl = canvas.toDataURL("image/png");
       setIdImageUrl(imageUrl);

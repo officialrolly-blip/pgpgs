@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Fix for html2canvas - override oklab colors with hex equivalents */
+@supports (color: oklab(0 0 0)) {
+  :root {
+    --color-green: #1b5c38;
+    --color-green-dark: #0f3d26;
+    --color-green-soft: #e7f0ea;
+    --color-gold: #c9a227;
+    --color-gold-light: #e8c96a;
+  }
+}
+
 :root {
   --background: #f6f3ea;
   --foreground: #1a1a1a;
