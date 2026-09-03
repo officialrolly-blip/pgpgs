@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
+import html2canvas from "html2canvas";
 
 type SearchMember = {
   id: string;
@@ -59,6 +60,8 @@ export default function MemberIdPage() {
   const [loginMemberId, setLoginMemberId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
+  const [idImageUrl, setIdImageUrl] = useState<string | null>(null);
+  const idCardRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -132,9 +135,29 @@ export default function MemberIdPage() {
       if (!meRes.ok) { setError(meData.error ?? "Failed to load your ID."); setLoading(false); return; }
       setIdMember(meData.member);
       setPhase("id");
+      // Capture ID card as image after render
+      setTimeout(() => {
+        captureIdCard();
+      }, 500);
     } catch { setError("Something went wrong. Please try again."); }
     finally { setLoading(false); }
   }, [loginMemberId, loginPassword]);
+
+  const captureIdCard = useCallback(async () => {
+    if (!idCardRef.current) return;
+    try {
+      const canvas = await html2canvas(idCardRef.current, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+      });
+      const imageUrl = canvas.toDataURL("image/png");
+      setIdImageUrl(imageUrl);
+    } catch (error) {
+      console.error("Failed to capture ID card:", error);
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     await fetch("/api/member-id/logout", { method: "POST" });
@@ -249,7 +272,13 @@ export default function MemberIdPage() {
               <button type="button" onClick={() => setFlipped((p) => !p)} className="rounded-lg border border-[#d9ceb3] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#5a6b5f] transition hover:bg-[#f7f2e6]">{flipped ? "View Front" : "View Back"}</button>
               <button type="button" onClick={logout} className="rounded-lg border border-red-200 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-red-600 transition hover:bg-red-50">Sign Out</button>
             </div>
-            <DigitalIdCard member={idMember} flipped={flipped} />
+            {idImageUrl ? (
+              <div className="mx-auto w-full max-w-[430px]">
+                <Image src={idImageUrl} alt="Digital ID Card" width={430} height={272} className="w-full rounded-2xl shadow-xl" />
+              </div>
+            ) : (
+              <DigitalIdCard ref={idCardRef} member={idMember} flipped={flipped} />
+            )}
             <p className="mt-4 text-center text-[10px] text-[#8a7b52]">This is your official PGPGS digital membership ID. You may be asked to present it for verification.</p>
           </div>
         )}
@@ -258,9 +287,9 @@ export default function MemberIdPage() {
   );
 }
 
-function DigitalIdCard({ member, flipped }: { member: IdMember; flipped: boolean }) {
+const DigitalIdCard = forwardRef<HTMLDivElement, { member: IdMember; flipped: boolean }>(({ member, flipped }, ref) => {
   return (
-    <div className="id-card-perspective mx-auto w-full max-w-[430px] select-none" style={{ aspectRatio: "85.6 / 53.98" }}>
+    <div ref={ref} className="id-card-perspective mx-auto w-full max-w-[430px] select-none" style={{ aspectRatio: "85.6 / 53.98" }}>
       <div className="id-card-inner relative h-full w-full transition-transform duration-700" style={{ transformStyle: "preserve-3d", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
         <div className="id-card-front absolute inset-0 overflow-hidden rounded-2xl shadow-xl select-none" style={{ backfaceVisibility: "hidden", userSelect: "none", WebkitUserSelect: "none" }} onCopy={(e) => e.preventDefault()}>
           <IdCardFront member={member} />
@@ -271,7 +300,9 @@ function DigitalIdCard({ member, flipped }: { member: IdMember; flipped: boolean
       </div>
     </div>
   );
-}
+});
+
+DigitalIdCard.displayName = "DigitalIdCard";
 
 function DetailCard({ label, value, large }: { label: string; value: string; large?: boolean }) {
   return (
