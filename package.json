@@ -6,7 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate-admin": "tsx scripts/apply-admin-auth-migration.ts",
+    "db:migrate-neophytes": "tsx scripts/apply-neophyte-migration.ts",
+    "db:migrate-chapters": "tsx scripts/apply-chapters-migration.ts",
+    "db:migrate-chapter-workflow": "tsx scripts/apply-chapter-workflow-migration.ts",
+    "db:migrate-vice-president-role": "tsx scripts/apply-vice-president-role-migration.ts",
+    "db:migrate-registration-sessions": "tsx scripts/apply-registration-sessions-migration.ts",
+    "db:migrate-grand-knight-dates": "tsx scripts/apply-grand-knight-dates-migration.ts",
+    "db:migrate-grand-knight-chapter": "tsx scripts/apply-grand-knight-chapter-migration.ts",
+    "db:migrate-chapter-organizer-chapter": "tsx scripts/apply-chapter-organizer-chapter-migration.ts",
+    "db:migrate-member-chapter": "tsx scripts/apply-member-chapter-migration.ts",
+    "db:migrate-initiator-chapter": "tsx scripts/apply-initiator-chapter-migration.ts",
+    "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@imagekit/next": "^2.1.5",
@@ -14,12 +26,14 @@
     "drizzle-orm": "^0.45.2",
     "jspdf": "^4.2.1",
     "next": "16.3.3",
+    "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.10",

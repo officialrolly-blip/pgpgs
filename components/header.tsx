@@ -13,10 +13,14 @@ export default function Header() {
   const headerRef = useRef<HTMLElement>(null);
   const menuId = useId();
 
-  useEffect(() => {
+  // Reset navigation state when the route changes (render-time adjustment,
+  // see react.dev/learn/you-might-not-need-an-effect).
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setMobileOpen(false);
     setOpenMenu(null);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -63,7 +67,7 @@ export default function Header() {
           aria-label="Pi Gamma Phi Gamma Sigma home"
         >
           <Image
-            src="/logo.png"
+            src="/logo2.png"
             alt="Pi Gamma Phi Gamma Sigma official header"
             width={330}
             height={65}

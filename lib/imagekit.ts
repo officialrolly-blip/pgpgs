@@ -82,3 +82,67 @@ export function avatarFromUrl(
   const base = url.startsWith("http") ? url : `${IMAGEKIT_URL_ENDPOINT}${url}`;
   return `${base}?tr=w-${width},h-${height},c-at_max`;
 }
+
+/**
+ * Uploads a chapter logo directly from the browser to ImageKit.
+ * Returns the CDN url of the uploaded asset.
+ */
+export async function uploadChapterLogo(
+  file: File,
+  chapterName: string,
+): Promise<ImageKitUploadResult> {
+  if (!IMAGEKIT_PUBLIC_KEY) {
+    throw new Error(
+      "Image upload is not configured. Please set NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY.",
+    );
+  }
+
+  const safeName = (chapterName || "chapter")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+
+  const extension =
+    file.type === "image/png"
+      ? "png"
+      : file.type === "image/webp"
+        ? "webp"
+        : "jpg";
+  const fileName = `${safeName}-logo-${Date.now()}.${extension}`;
+
+  const authResponse = await fetch("/api/imagekit-auth");
+  if (!authResponse.ok) {
+    const result = (await authResponse.json().catch(() => ({}))) as { error?: string };
+    throw new Error(result.error ?? "Image upload authentication failed.");
+  }
+  const auth = (await authResponse.json()) as {
+    token: string;
+    expire: number;
+    signature: string;
+  };
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("fileName", fileName);
+  formData.append("publicKey", IMAGEKIT_PUBLIC_KEY);
+  formData.append("token", auth.token);
+  formData.append("expire", String(auth.expire));
+  formData.append("signature", auth.signature);
+  formData.append("useUniqueFileName", "true");
+  formData.append("folderName", "chapter-logos");
+  formData.append("isPrivateFile", "false");
+
+  const response = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Logo upload failed (${response.status}): ${text}`);
+  }
+
+  const result = (await response.json()) as ImageKitUploadResult;
+  return result;
+}

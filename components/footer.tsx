@@ -15,7 +15,7 @@ export default function Footer() {
         <div>
           <Link href="/" aria-label="PGPGS Roxas City home">
             <Image
-              src="/logo.png"
+              src="/logo2.png"
               alt="Pi Gamma Phi Gamma Sigma"
               width={330}
               height={65}

@@ -54,6 +54,10 @@ export const navigation: NavItem[] = [
         label: "Our Founding Fathers",
         href: "/about/founding-fathers",
       },
+      {
+        label: "PGPGS Across Capiz",
+        href: "/about/pgpgs-across-capiz",
+      },
     ],
   },
   {

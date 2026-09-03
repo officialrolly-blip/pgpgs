@@ -10,9 +10,12 @@ const MEMBER_STATUSES = [
   "Alumni",
   "PGP-GS Roxas City Chapter Officer",
   "Former Chapter President",
+  "Former Chapter Vice President",
   "Former Chapter Master Initiator",
   "Former Chapter Lady Initiator",
-  "Grand Knights",
+  "Former Grand Knight",
+  "Elected Grand Knight",
+  "Chapter Organizer",
 ] as const;
 const PGPGS_CHAPTERS = [
   "Roxas City Capiz Chapter",
@@ -22,6 +25,22 @@ const PGPGS_CHAPTERS = [
   "Pontevedra Chapter",
   "Dao Chapter",
   "Dumarao Chapter",
+] as const;
+const VICE_PRESIDENT_ROLES = [
+  "VP For Internal",
+  "VP For External",
+] as const;
+const MASTER_INITIATOR_ROLES = [
+  "Master Initiator I",
+  "Master Initiator II",
+  "Master Initiator III",
+  "Master Initiator IV",
+] as const;
+const LADY_INITIATOR_ROLES = [
+  "Lady Initiator I",
+  "Lady Initiator II",
+  "Lady Initiator III",
+  "Lady Initiator IV",
 ] as const;
 type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
@@ -44,16 +63,29 @@ interface PgpMemberBody {
   baptizedName?: string;
   dateSurvived?: string;
   status?: string;
+  memberChapter?: string;
   officerPosition?: string;
   officerDateElected?: string;
   formerPresidentChapter?: string;
   formerPresidentStart?: string;
   formerPresidentEnd?: string;
+  formerVicePresidentChapter?: string;
+  formerVicePresidentRole?: string;
+  formerVicePresidentStart?: string;
+  formerVicePresidentEnd?: string;
+  formerMasterInitiatorRole?: string;
+  formerMasterInitiatorChapter?: string;
   formerMasterInitiatorStart?: string;
   formerMasterInitiatorEnd?: string;
+  formerLadyInitiatorRole?: string;
+  formerLadyInitiatorChapter?: string;
   formerLadyInitiatorStart?: string;
   formerLadyInitiatorEnd?: string;
   grandKnight?: string;
+  grandKnightChapter?: string;
+  grandKnightStart?: string;
+  grandKnightEnd?: string;
+  chapterOrganizerChapter?: string;
   photoUrl?: string;
   hasPhoto?: boolean;
 }
@@ -110,6 +142,23 @@ export async function POST(request: Request) {
       );
     }
 
+    const isMemberOrAlumni = body.status === "Member" || body.status === "Alumni";
+    if (isMemberOrAlumni && !isNonEmptyString(body.memberChapter)) {
+      return NextResponse.json(
+        { error: "Please select a chapter." },
+        { status: 400 },
+      );
+    }
+    if (
+      isMemberOrAlumni &&
+      !PGPGS_CHAPTERS.includes(body.memberChapter as (typeof PGPGS_CHAPTERS)[number])
+    ) {
+      return NextResponse.json(
+        { error: "Please select a valid PGPGS chapter." },
+        { status: 400 },
+      );
+    }
+
     const isOfficer = body.status === "PGP-GS Roxas City Chapter Officer";
     if (isOfficer && (!isNonEmptyString(body.officerPosition) || !isNonEmptyString(body.officerDateElected))) {
       return NextResponse.json({ error: "Date elected is required for a chapter officer." }, { status: 400 });
@@ -137,6 +186,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const isFormerVicePresident = body.status === "Former Chapter Vice President";
+    if (
+      isFormerVicePresident &&
+      (!isNonEmptyString(body.formerVicePresidentChapter) ||
+        !isNonEmptyString(body.formerVicePresidentRole) ||
+        !isNonEmptyString(body.formerVicePresidentStart) ||
+        !isNonEmptyString(body.formerVicePresidentEnd))
+    ) {
+      return NextResponse.json(
+        { error: "Role, chapter, and both the date started and date ended are required for a former chapter vice president." },
+        { status: 400 },
+      );
+    }
+    if (
+      isFormerVicePresident &&
+      (!VICE_PRESIDENT_ROLES.includes(body.formerVicePresidentRole as (typeof VICE_PRESIDENT_ROLES)[number]) ||
+        !PGPGS_CHAPTERS.includes(body.formerVicePresidentChapter as (typeof PGPGS_CHAPTERS)[number]))
+    ) {
+      return NextResponse.json(
+        { error: "Please select a valid vice president role and PGPGS chapter." },
+        { status: 400 },
+      );
+    }
+
     const isFormerMasterInitiator = body.status === "Former Chapter Master Initiator";
     if (
       isFormerMasterInitiator &&
@@ -144,6 +217,24 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         { error: "Both the date started and date ended are required for a former chapter Master Initiator." },
+        { status: 400 },
+      );
+    }
+    if (
+      isFormerMasterInitiator &&
+      !MASTER_INITIATOR_ROLES.includes(body.formerMasterInitiatorRole as (typeof MASTER_INITIATOR_ROLES)[number])
+    ) {
+      return NextResponse.json(
+        { error: "Please select a valid Master Initiator role." },
+        { status: 400 },
+      );
+    }
+    if (
+      isFormerMasterInitiator &&
+      !PGPGS_CHAPTERS.includes(body.formerMasterInitiatorChapter as (typeof PGPGS_CHAPTERS)[number])
+    ) {
+      return NextResponse.json(
+        { error: "Please select a valid PGPGS chapter." },
         { status: 400 },
       );
     }
@@ -155,6 +246,60 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         { error: "Both the date started and date ended are required for a former chapter Lady Initiator." },
+        { status: 400 },
+      );
+    }
+    if (
+      isFormerLadyInitiator &&
+      !LADY_INITIATOR_ROLES.includes(body.formerLadyInitiatorRole as (typeof LADY_INITIATOR_ROLES)[number])
+    ) {
+      return NextResponse.json(
+        { error: "Please select a valid Lady Initiator role." },
+        { status: 400 },
+      );
+    }
+    if (
+      isFormerLadyInitiator &&
+      !PGPGS_CHAPTERS.includes(body.formerLadyInitiatorChapter as (typeof PGPGS_CHAPTERS)[number])
+    ) {
+      return NextResponse.json(
+        { error: "Please select a valid PGPGS chapter." },
+        { status: 400 },
+      );
+    }
+
+    const isFormerGrandKnight = body.status === "Former Grand Knight";
+    const isChapterOrganizer = body.status === "Chapter Organizer";
+    if (isChapterOrganizer && !isNonEmptyString(body.chapterOrganizerChapter)) {
+      return NextResponse.json({ error: "Please select the PGPGS chapter you organize." }, { status: 400 });
+    }
+    if (isChapterOrganizer && !PGPGS_CHAPTERS.includes(body.chapterOrganizerChapter as (typeof PGPGS_CHAPTERS)[number])) {
+      return NextResponse.json({ error: "Please select a valid PGPGS chapter." }, { status: 400 });
+    }
+    if (
+      (isFormerGrandKnight || body.status === "Elected Grand Knight") &&
+      !isNonEmptyString(body.grandKnightChapter)
+    ) {
+      return NextResponse.json(
+        { error: "Please select the PGPGS chapter for your Grand Knight role." },
+        { status: 400 },
+      );
+    }
+    if (
+      (isFormerGrandKnight || body.status === "Elected Grand Knight") &&
+      !PGPGS_CHAPTERS.includes(body.grandKnightChapter as (typeof PGPGS_CHAPTERS)[number])
+    ) {
+      return NextResponse.json(
+        { error: "Please select a valid PGPGS chapter." },
+        { status: 400 },
+      );
+    }
+    if (
+      isFormerGrandKnight &&
+      (!isNonEmptyString(body.grandKnightStart) || !isNonEmptyString(body.grandKnightEnd))
+    ) {
+      return NextResponse.json(
+        { error: "Both the date started and date ended are required for a former Grand Knight." },
         { status: 400 },
       );
     }
@@ -191,16 +336,29 @@ export async function POST(request: Request) {
           baptizedName: body.baptizedName!,
           dateSurvived: body.dateSurvived!,
           status: body.status as MemberStatus,
+          memberChapter: isMemberOrAlumni ? body.memberChapter! : null,
           officerPosition: isOfficer ? body.officerPosition! : null,
           officerDateElected: isOfficer ? body.officerDateElected! : null,
           formerPresidentChapter: isFormerPresident ? body.formerPresidentChapter! : null,
           formerPresidentStart: isFormerPresident ? body.formerPresidentStart! : null,
           formerPresidentEnd: isFormerPresident ? body.formerPresidentEnd! : null,
+          formerVicePresidentChapter: isFormerVicePresident ? body.formerVicePresidentChapter! : null,
+          formerVicePresidentRole: isFormerVicePresident ? body.formerVicePresidentRole! : null,
+          formerVicePresidentStart: isFormerVicePresident ? body.formerVicePresidentStart! : null,
+          formerVicePresidentEnd: isFormerVicePresident ? body.formerVicePresidentEnd! : null,
+          formerMasterInitiatorRole: isFormerMasterInitiator ? body.formerMasterInitiatorRole! : null,
+          formerMasterInitiatorChapter: isFormerMasterInitiator ? body.formerMasterInitiatorChapter! : null,
           formerMasterInitiatorStart: isFormerMasterInitiator ? body.formerMasterInitiatorStart! : null,
           formerMasterInitiatorEnd: isFormerMasterInitiator ? body.formerMasterInitiatorEnd! : null,
+          formerLadyInitiatorRole: isFormerLadyInitiator ? body.formerLadyInitiatorRole! : null,
+          formerLadyInitiatorChapter: isFormerLadyInitiator ? body.formerLadyInitiatorChapter! : null,
           formerLadyInitiatorStart: isFormerLadyInitiator ? body.formerLadyInitiatorStart! : null,
           formerLadyInitiatorEnd: isFormerLadyInitiator ? body.formerLadyInitiatorEnd! : null,
           grandKnight: isNonEmptyString(body.grandKnight) ? body.grandKnight : null,
+          grandKnightChapter: isFormerGrandKnight || body.status === "Elected Grand Knight" ? body.grandKnightChapter! : null,
+          grandKnightStart: isFormerGrandKnight ? body.grandKnightStart! : null,
+          grandKnightEnd: isFormerGrandKnight ? body.grandKnightEnd! : null,
+          chapterOrganizerChapter: isChapterOrganizer ? body.chapterOrganizerChapter! : null,
           photoUrl: isNonEmptyString(body.photoUrl) ? body.photoUrl : null,
           hasPhoto: Boolean(body.hasPhoto),
         });
