@@ -20,7 +20,10 @@ export const NEOPHYTE_STATUSES = [
   "passed_member",
 ] as const;
 
-export const NEOPHYTE_STATUS_LABELS: Record<(typeof NEOPHYTE_STATUSES)[number], string> = {
+export const NEOPHYTE_STATUS_LABELS: Record<
+  (typeof NEOPHYTE_STATUSES)[number],
+  string
+> = {
   orientation: "Orientation",
   baptism: "Baptism",
   baptism_confirmed: "Confirmation of Baptism",
@@ -41,16 +44,6 @@ export const OFFICER_POSITIONS = [
   "Lady Initiator I",
   "Lady Initiator II",
   "Lady Initiator III",
-] as const;
-
-export const PGPGS_CHAPTERS = [
-  "Roxas City Capiz Chapter",
-  "Panay Chapter",
-  "Panit-an Chapter",
-  "Maayon Chapter",
-  "Pontevedra Chapter",
-  "Dao Chapter",
-  "Dumarao Chapter",
 ] as const;
 
 export const VICE_PRESIDENT_ROLES = [

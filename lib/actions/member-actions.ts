@@ -7,12 +7,12 @@ import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { buildMemberId } from "@/lib/member-id";
+import { getPublishedChapterNames } from "@/lib/chapters";
 import {
   LADY_INITIATOR_ROLES,
   MASTER_INITIATOR_ROLES,
   MEMBER_STATUSES,
   OFFICER_POSITIONS,
-  PGPGS_CHAPTERS,
   VICE_PRESIDENT_ROLES,
 } from "@/lib/member-constants";
 
@@ -50,7 +50,10 @@ function optionalStr(formData: FormData, key: string): string | null {
 }
 
 /** Builds an insert/update payload from form data, mirroring the public API validation. */
-function parseMemberForm(formData: FormData): { values?: Record<string, unknown>; error?: string } {
+function parseMemberForm(
+  formData: FormData,
+  validChapterNames: Set<string>,
+): { values?: Record<string, unknown>; error?: string } {
   const values: Record<string, unknown> = {
     firstName: str(formData, "firstName"),
     lastName: str(formData, "lastName"),
@@ -88,11 +91,14 @@ function parseMemberForm(formData: FormData): { values?: Record<string, unknown>
     formerLadyInitiatorEnd: null,
     grandKnight: optionalStr(formData, "grandKnight"),
     photoUrl: optionalStr(formData, "photoUrl"),
-    hasPhoto: formData.get("hasPhoto") === "on" || formData.get("hasPhoto") === "true",
+    hasPhoto:
+      formData.get("hasPhoto") === "on" || formData.get("hasPhoto") === "true",
   };
 
   const missingField = REQUIRED_FIELDS.find(
-    (field) => typeof values[field] !== "string" || (values[field] as string).length === 0,
+    (field) =>
+      typeof values[field] !== "string" ||
+      (values[field] as string).length === 0,
   );
   if (missingField) {
     return { error: `Missing required field: ${missingField}` };
@@ -114,13 +120,14 @@ function parseMemberForm(formData: FormData): { values?: Record<string, unknown>
     return { error: "Please enter a valid email address." };
   }
 
-  return validateStatusFields(formData, values, status);
+  return validateStatusFields(formData, values, status, validChapterNames);
 }
 
 function validateStatusFields(
   formData: FormData,
   values: Record<string, unknown>,
   status: string,
+  validChapterNames: Set<string>,
 ): { values?: Record<string, unknown>; error?: string } {
   const isOfficer = status === "PGP-GS Roxas City Chapter Officer";
   const isFormerPresident = status === "Former Chapter President";
@@ -131,7 +138,11 @@ function validateStatusFields(
   if (isOfficer) {
     const position = str(formData, "officerPosition");
     const dateElected = str(formData, "officerDateElected");
-    if (!OFFICER_POSITIONS.includes(position as (typeof OFFICER_POSITIONS)[number])) {
+    if (
+      !OFFICER_POSITIONS.includes(
+        position as (typeof OFFICER_POSITIONS)[number],
+      )
+    ) {
       return { error: "Please select a valid officer position." };
     }
     if (!dateElected) return { error: "Officer date elected is required." };
@@ -143,7 +154,7 @@ function validateStatusFields(
     const chapter = str(formData, "formerPresidentChapter");
     const start = str(formData, "formerPresidentStart");
     const end = str(formData, "formerPresidentEnd");
-    if (!PGPGS_CHAPTERS.includes(chapter as (typeof PGPGS_CHAPTERS)[number])) {
+    if (!validChapterNames.has(chapter)) {
       return { error: "Please select a valid chapter." };
     }
     if (!start || !end) return { error: "Term start and end are required." };
@@ -157,10 +168,14 @@ function validateStatusFields(
     const role = str(formData, "formerVicePresidentRole");
     const start = str(formData, "formerVicePresidentStart");
     const end = str(formData, "formerVicePresidentEnd");
-    if (!PGPGS_CHAPTERS.includes(chapter as (typeof PGPGS_CHAPTERS)[number])) {
+    if (!validChapterNames.has(chapter)) {
       return { error: "Please select a valid chapter." };
     }
-    if (!VICE_PRESIDENT_ROLES.includes(role as (typeof VICE_PRESIDENT_ROLES)[number])) {
+    if (
+      !VICE_PRESIDENT_ROLES.includes(
+        role as (typeof VICE_PRESIDENT_ROLES)[number],
+      )
+    ) {
       return { error: "Please select a valid vice president role." };
     }
     if (!start || !end) return { error: "Term start and end are required." };
@@ -175,10 +190,14 @@ function validateStatusFields(
     const chapter = str(formData, "formerMasterInitiatorChapter");
     const start = str(formData, "formerMasterInitiatorStart");
     const end = str(formData, "formerMasterInitiatorEnd");
-    if (!MASTER_INITIATOR_ROLES.includes(role as (typeof MASTER_INITIATOR_ROLES)[number])) {
+    if (
+      !MASTER_INITIATOR_ROLES.includes(
+        role as (typeof MASTER_INITIATOR_ROLES)[number],
+      )
+    ) {
       return { error: "Please select a valid master initiator role." };
     }
-    if (!PGPGS_CHAPTERS.includes(chapter as (typeof PGPGS_CHAPTERS)[number])) {
+    if (!validChapterNames.has(chapter)) {
       return { error: "Please select a valid chapter." };
     }
     if (!start || !end) return { error: "Term start and end are required." };
@@ -193,10 +212,14 @@ function validateStatusFields(
     const chapter = str(formData, "formerLadyInitiatorChapter");
     const start = str(formData, "formerLadyInitiatorStart");
     const end = str(formData, "formerLadyInitiatorEnd");
-    if (!LADY_INITIATOR_ROLES.includes(role as (typeof LADY_INITIATOR_ROLES)[number])) {
+    if (
+      !LADY_INITIATOR_ROLES.includes(
+        role as (typeof LADY_INITIATOR_ROLES)[number],
+      )
+    ) {
       return { error: "Please select a valid lady initiator role." };
     }
-    if (!PGPGS_CHAPTERS.includes(chapter as (typeof PGPGS_CHAPTERS)[number])) {
+    if (!validChapterNames.has(chapter)) {
       return { error: "Please select a valid chapter." };
     }
     if (!start || !end) return { error: "Term start and end are required." };
@@ -225,7 +248,8 @@ export async function createMemberAction(
 ): Promise<MemberFormState> {
   await requireAdmin();
 
-  const parsed = parseMemberForm(formData);
+  const validChapterNames = await getPublishedChapterNames();
+  const parsed = parseMemberForm(formData, validChapterNames);
   if (parsed.error || !parsed.values) {
     return { error: parsed.error ?? "Please review the form and try again." };
   }
@@ -245,14 +269,20 @@ export async function createMemberAction(
     const [{ memberCount }] = await db
       .select({ memberCount: drizzleSql<number>`count(*)` })
       .from(pgpmembers);
-    memberId = buildMemberId(values.dateSurvived as string, Number(memberCount) + 1 + attempt);
+    memberId = buildMemberId(
+      values.dateSurvived as string,
+      Number(memberCount) + 1 + attempt,
+    );
 
     try {
-      await db.insert(pgpmembers).values({ ...values, memberId } as typeof pgpmembers.$inferInsert);
+      await db
+        .insert(pgpmembers)
+        .values({ ...values, memberId } as typeof pgpmembers.$inferInsert);
       break;
     } catch (error) {
       const isUniqueViolation =
-        error instanceof Error && error.message.toLowerCase().includes("unique");
+        error instanceof Error &&
+        error.message.toLowerCase().includes("unique");
       if (!isUniqueViolation || attempt === 4) throw error;
     }
   }
@@ -270,7 +300,8 @@ export async function updateMemberAction(
   const memberId = String(formData.get("id") ?? "");
   if (!memberId) return { error: "Missing member reference." };
 
-  const parsed = parseMemberForm(formData);
+  const validChapterNames = await getPublishedChapterNames();
+  const parsed = parseMemberForm(formData, validChapterNames);
   if (parsed.error || !parsed.values) {
     return { error: parsed.error ?? "Please review the form and try again." };
   }
@@ -304,7 +335,9 @@ export async function deleteMemberAction(formData: FormData): Promise<void> {
   redirect("/admin/members?deleted=1");
 }
 
-export async function setOfficerPositionAction(formData: FormData): Promise<void> {
+export async function setOfficerPositionAction(
+  formData: FormData,
+): Promise<void> {
   await requireAdmin();
 
   const memberId = String(formData.get("memberId") ?? "");
@@ -327,11 +360,18 @@ export async function setOfficerPositionAction(formData: FormData): Promise<void
         officerPosition: null,
         officerDateElected: null,
         status:
-          member?.status === "PGP-GS Roxas City Chapter Officer" ? "Member" : member?.status ?? "Member",
+          member?.status === "PGP-GS Roxas City Chapter Officer"
+            ? "Member"
+            : (member?.status ?? "Member"),
       })
       .where(eq(pgpmembers.id, memberId));
   } else {
-    if (!OFFICER_POSITIONS.includes(position as (typeof OFFICER_POSITIONS)[number])) return;
+    if (
+      !OFFICER_POSITIONS.includes(
+        position as (typeof OFFICER_POSITIONS)[number],
+      )
+    )
+      return;
     if (!dateElected) return;
 
     await db
@@ -346,4 +386,3 @@ export async function setOfficerPositionAction(formData: FormData): Promise<void
 
   revalidateMemberPaths();
 }
-

@@ -5,10 +5,13 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
-import MemberForm, { type MemberFormValues } from "@/components/admin/member-form";
+import MemberForm, {
+  type MemberFormValues,
+} from "@/components/admin/member-form";
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import { deleteMemberAction } from "@/lib/actions/member-actions";
 import { requireAdmin } from "@/lib/auth";
+import { getAllChapterNames } from "@/lib/chapters";
 
 export const metadata: Metadata = {
   title: "Edit Member",
@@ -21,6 +24,7 @@ export default async function EditMemberPage({
 }) {
   await requireAdmin();
   const { id } = await params;
+  const chapters = await getAllChapterNames();
 
   const [member] = await db
     .select()
@@ -80,10 +84,7 @@ export default async function EditMemberPage({
         description={`Member ID ${member.memberId} · joined ${member.createdAt.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}`}
         actions={
           <>
-            <Link
-              href="/admin/members"
-              className="a-btn a-btn-secondary"
-            >
+            <Link href="/admin/members" className="a-btn a-btn-secondary">
               ← Back
             </Link>
             <form action={deleteMemberAction}>
@@ -98,7 +99,7 @@ export default async function EditMemberPage({
           </>
         }
       />
-      <MemberForm mode="edit" initial={initial} />
+      <MemberForm mode="edit" initial={initial} chapters={chapters} />
     </>
   );
 }

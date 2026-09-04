@@ -11,7 +11,6 @@ import {
   MASTER_INITIATOR_ROLES,
   MEMBER_STATUSES,
   OFFICER_POSITIONS,
-  PGPGS_CHAPTERS,
   VICE_PRESIDENT_ROLES,
 } from "@/lib/member-constants";
 import { uploadMemberPhoto } from "@/lib/imagekit";
@@ -125,7 +124,13 @@ function Field({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="a-card p-5 sm:p-6">
       <h2 className="a-card-title mb-4">{title}</h2>
@@ -134,11 +139,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function MemberForm({ mode, initial }: { mode: "create" | "edit"; initial: MemberFormValues }) {
-  const [state, formAction, isPending] = useActionState<MemberFormState, FormData>(
-    mode === "create" ? createMemberAction : updateMemberAction,
-    {},
-  );
+export default function MemberForm({
+  mode,
+  initial,
+  chapters,
+}: {
+  mode: "create" | "edit";
+  initial: MemberFormValues;
+  chapters: string[];
+}) {
+  const [state, formAction, isPending] = useActionState<
+    MemberFormState,
+    FormData
+  >(mode === "create" ? createMemberAction : updateMemberAction, {});
 
   const [status, setStatus] = useState(initial.status);
   const [photoUrl, setPhotoUrl] = useState(initial.photoUrl);
@@ -158,11 +171,16 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
     setUploading(true);
     setUploadError(null);
     try {
-      const result = await uploadMemberPhoto(file, `${initial.firstName || "member"} ${initial.lastName}`.trim());
+      const result = await uploadMemberPhoto(
+        file,
+        `${initial.firstName || "member"} ${initial.lastName}`.trim(),
+      );
       setPhotoUrl(result.url);
       setHasPhoto(true);
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Photo upload failed.");
+      setUploadError(
+        error instanceof Error ? error.message : "Photo upload failed.",
+      );
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -171,58 +189,130 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
 
   return (
     <form action={formAction} className="space-y-5">
-      {mode === "edit" ? <input type="hidden" name="id" value={initial.id} /> : null}
+      {mode === "edit" ? (
+        <input type="hidden" name="id" value={initial.id} />
+      ) : null}
       <input type="hidden" name="photoUrl" value={photoUrl} />
-      <input type="hidden" name="hasPhoto" value={hasPhoto ? "true" : "false"} />
+      <input
+        type="hidden"
+        name="hasPhoto"
+        value={hasPhoto ? "true" : "false"}
+      />
 
       {state.error ? (
-        <p role="alert" className="rounded-xl border border-[#fecdca] bg-a-danger-soft px-4 py-3 text-sm font-medium text-a-danger">
+        <p
+          role="alert"
+          className="rounded-xl border border-[#fecdca] bg-a-danger-soft px-4 py-3 text-sm font-medium text-a-danger"
+        >
           {state.error}
         </p>
       ) : null}
       {state.success ? (
-        <p role="status" className="rounded-xl border border-[#a6f4c5] bg-a-success-soft px-4 py-3 text-sm font-medium text-a-success">
+        <p
+          role="status"
+          className="rounded-xl border border-[#a6f4c5] bg-a-success-soft px-4 py-3 text-sm font-medium text-a-success"
+        >
           {state.success}
         </p>
       ) : null}
 
       <Section title="Personal Information">
         <Field label="First name" required>
-          <input name="firstName" defaultValue={initial.firstName} required className={inputClass} />
+          <input
+            name="firstName"
+            defaultValue={initial.firstName}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Last name" required>
-          <input name="lastName" defaultValue={initial.lastName} required className={inputClass} />
+          <input
+            name="lastName"
+            defaultValue={initial.lastName}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Middle initial">
-          <input name="middleInitial" defaultValue={initial.middleInitial} maxLength={2} className={inputClass} />
+          <input
+            name="middleInitial"
+            defaultValue={initial.middleInitial}
+            maxLength={2}
+            className={inputClass}
+          />
         </Field>
         <Field label="Age" required>
-          <input name="age" type="number" min={1} max={120} defaultValue={initial.age} required className={inputClass} />
+          <input
+            name="age"
+            type="number"
+            min={1}
+            max={120}
+            defaultValue={initial.age}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Date of birth" required>
-          <input name="dateOfBirth" type="date" defaultValue={initial.dateOfBirth} required className={inputClass} />
+          <input
+            name="dateOfBirth"
+            type="date"
+            defaultValue={initial.dateOfBirth}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Place of birth" required>
-          <input name="placeOfBirth" defaultValue={initial.placeOfBirth} required className={inputClass} />
+          <input
+            name="placeOfBirth"
+            defaultValue={initial.placeOfBirth}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Email" required>
-          <input name="email" type="email" defaultValue={initial.email} required className={inputClass} />
+          <input
+            name="email"
+            type="email"
+            defaultValue={initial.email}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Contact number" required>
-          <input name="contactNumber" defaultValue={initial.contactNumber} required className={inputClass} />
+          <input
+            name="contactNumber"
+            defaultValue={initial.contactNumber}
+            required
+            className={inputClass}
+          />
         </Field>
       </Section>
 
       <Section title="Guardian">
         <Field label="Guardian name" required>
-          <input name="guardianName" defaultValue={initial.guardianName} required className={inputClass} />
+          <input
+            name="guardianName"
+            defaultValue={initial.guardianName}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Guardian contact" required>
-          <input name="guardianContact" defaultValue={initial.guardianContact} required className={inputClass} />
+          <input
+            name="guardianContact"
+            defaultValue={initial.guardianContact}
+            required
+            className={inputClass}
+          />
         </Field>
         <div className="sm:col-span-2">
           <Field label="Guardian address" required>
-            <input name="guardianAddress" defaultValue={initial.guardianAddress} required className={inputClass} />
+            <input
+              name="guardianAddress"
+              defaultValue={initial.guardianAddress}
+              required
+              className={inputClass}
+            />
           </Field>
         </div>
       </Section>
@@ -243,20 +333,40 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
           </select>
         </Field>
         <Field label="Date survived (initiation)" required>
-          <input name="dateSurvived" type="date" defaultValue={initial.dateSurvived} required className={inputClass} />
+          <input
+            name="dateSurvived"
+            type="date"
+            defaultValue={initial.dateSurvived}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Baptized name" required>
-          <input name="baptizedName" defaultValue={initial.baptizedName} required className={inputClass} />
+          <input
+            name="baptizedName"
+            defaultValue={initial.baptizedName}
+            required
+            className={inputClass}
+          />
         </Field>
         <Field label="Grand Knight (year/title, if any)">
-          <input name="grandKnight" defaultValue={initial.grandKnight} className={inputClass} />
+          <input
+            name="grandKnight"
+            defaultValue={initial.grandKnight}
+            className={inputClass}
+          />
         </Field>
       </Section>
 
       {isOfficer ? (
         <Section title="Officer Details">
           <Field label="Officer position" required>
-            <select name="officerPosition" defaultValue={initial.officerPosition} required className={inputClass}>
+            <select
+              name="officerPosition"
+              defaultValue={initial.officerPosition}
+              required
+              className={inputClass}
+            >
               <option value="">Select position…</option>
               {OFFICER_POSITIONS.map((value) => (
                 <option key={value} value={value}>
@@ -266,7 +376,13 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
             </select>
           </Field>
           <Field label="Date elected" required>
-            <input name="officerDateElected" type="date" defaultValue={initial.officerDateElected} required className={inputClass} />
+            <input
+              name="officerDateElected"
+              type="date"
+              defaultValue={initial.officerDateElected}
+              required
+              className={inputClass}
+            />
           </Field>
         </Section>
       ) : null}
@@ -274,19 +390,38 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
       {isFormerPresident ? (
         <Section title="Former Chapter President">
           <Field label="Chapter" required>
-            <select name="formerPresidentChapter" defaultValue={initial.formerPresidentChapter} required className={inputClass}>
+            <select
+              name="formerPresidentChapter"
+              defaultValue={initial.formerPresidentChapter}
+              required
+              className={inputClass}
+            >
               <option value="">Select chapter…</option>
-              {PGPGS_CHAPTERS.map((value) => (
-                <option key={value} value={value}>{value}</option>
+              {chapters.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
               ))}
             </select>
           </Field>
           <div />
           <Field label="Term start" required>
-            <input name="formerPresidentStart" type="date" defaultValue={initial.formerPresidentStart} required className={inputClass} />
+            <input
+              name="formerPresidentStart"
+              type="date"
+              defaultValue={initial.formerPresidentStart}
+              required
+              className={inputClass}
+            />
           </Field>
           <Field label="Term end" required>
-            <input name="formerPresidentEnd" type="date" defaultValue={initial.formerPresidentEnd} required className={inputClass} />
+            <input
+              name="formerPresidentEnd"
+              type="date"
+              defaultValue={initial.formerPresidentEnd}
+              required
+              className={inputClass}
+            />
           </Field>
         </Section>
       ) : null}
@@ -294,26 +429,52 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
       {isFormerVicePresident ? (
         <Section title="Former Chapter Vice President">
           <Field label="Chapter" required>
-            <select name="formerVicePresidentChapter" defaultValue={initial.formerVicePresidentChapter} required className={inputClass}>
+            <select
+              name="formerVicePresidentChapter"
+              defaultValue={initial.formerVicePresidentChapter}
+              required
+              className={inputClass}
+            >
               <option value="">Select chapter…</option>
-              {PGPGS_CHAPTERS.map((value) => (
-                <option key={value} value={value}>{value}</option>
+              {chapters.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
               ))}
             </select>
           </Field>
           <Field label="Role" required>
-            <select name="formerVicePresidentRole" defaultValue={initial.formerVicePresidentRole} required className={inputClass}>
+            <select
+              name="formerVicePresidentRole"
+              defaultValue={initial.formerVicePresidentRole}
+              required
+              className={inputClass}
+            >
               <option value="">Select role…</option>
               {VICE_PRESIDENT_ROLES.map((value) => (
-                <option key={value} value={value}>{value}</option>
+                <option key={value} value={value}>
+                  {value}
+                </option>
               ))}
             </select>
           </Field>
           <Field label="Term start" required>
-            <input name="formerVicePresidentStart" type="date" defaultValue={initial.formerVicePresidentStart} required className={inputClass} />
+            <input
+              name="formerVicePresidentStart"
+              type="date"
+              defaultValue={initial.formerVicePresidentStart}
+              required
+              className={inputClass}
+            />
           </Field>
           <Field label="Term end" required>
-            <input name="formerVicePresidentEnd" type="date" defaultValue={initial.formerVicePresidentEnd} required className={inputClass} />
+            <input
+              name="formerVicePresidentEnd"
+              type="date"
+              defaultValue={initial.formerVicePresidentEnd}
+              required
+              className={inputClass}
+            />
           </Field>
         </Section>
       ) : null}
@@ -321,26 +482,52 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
       {isFormerMasterInitiator ? (
         <Section title="Former Chapter Master Initiator">
           <Field label="Chapter" required>
-            <select name="formerMasterInitiatorChapter" defaultValue={initial.formerMasterInitiatorChapter} required className={inputClass}>
+            <select
+              name="formerMasterInitiatorChapter"
+              defaultValue={initial.formerMasterInitiatorChapter}
+              required
+              className={inputClass}
+            >
               <option value="">Select chapter…</option>
-              {PGPGS_CHAPTERS.map((value) => (
-                <option key={value} value={value}>{value}</option>
+              {chapters.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
               ))}
             </select>
           </Field>
           <Field label="Role" required>
-            <select name="formerMasterInitiatorRole" defaultValue={initial.formerMasterInitiatorRole} required className={inputClass}>
+            <select
+              name="formerMasterInitiatorRole"
+              defaultValue={initial.formerMasterInitiatorRole}
+              required
+              className={inputClass}
+            >
               <option value="">Select role…</option>
               {MASTER_INITIATOR_ROLES.map((value) => (
-                <option key={value} value={value}>{value}</option>
+                <option key={value} value={value}>
+                  {value}
+                </option>
               ))}
             </select>
           </Field>
           <Field label="Term start" required>
-            <input name="formerMasterInitiatorStart" type="date" defaultValue={initial.formerMasterInitiatorStart} required className={inputClass} />
+            <input
+              name="formerMasterInitiatorStart"
+              type="date"
+              defaultValue={initial.formerMasterInitiatorStart}
+              required
+              className={inputClass}
+            />
           </Field>
           <Field label="Term end" required>
-            <input name="formerMasterInitiatorEnd" type="date" defaultValue={initial.formerMasterInitiatorEnd} required className={inputClass} />
+            <input
+              name="formerMasterInitiatorEnd"
+              type="date"
+              defaultValue={initial.formerMasterInitiatorEnd}
+              required
+              className={inputClass}
+            />
           </Field>
         </Section>
       ) : null}
@@ -348,26 +535,52 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
       {isFormerLadyInitiator ? (
         <Section title="Former Chapter Lady Initiator">
           <Field label="Chapter" required>
-            <select name="formerLadyInitiatorChapter" defaultValue={initial.formerLadyInitiatorChapter} required className={inputClass}>
+            <select
+              name="formerLadyInitiatorChapter"
+              defaultValue={initial.formerLadyInitiatorChapter}
+              required
+              className={inputClass}
+            >
               <option value="">Select chapter…</option>
-              {PGPGS_CHAPTERS.map((value) => (
-                <option key={value} value={value}>{value}</option>
+              {chapters.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
               ))}
             </select>
           </Field>
           <Field label="Role" required>
-            <select name="formerLadyInitiatorRole" defaultValue={initial.formerLadyInitiatorRole} required className={inputClass}>
+            <select
+              name="formerLadyInitiatorRole"
+              defaultValue={initial.formerLadyInitiatorRole}
+              required
+              className={inputClass}
+            >
               <option value="">Select role…</option>
               {LADY_INITIATOR_ROLES.map((value) => (
-                <option key={value} value={value}>{value}</option>
+                <option key={value} value={value}>
+                  {value}
+                </option>
               ))}
             </select>
           </Field>
           <Field label="Term start" required>
-            <input name="formerLadyInitiatorStart" type="date" defaultValue={initial.formerLadyInitiatorStart} required className={inputClass} />
+            <input
+              name="formerLadyInitiatorStart"
+              type="date"
+              defaultValue={initial.formerLadyInitiatorStart}
+              required
+              className={inputClass}
+            />
           </Field>
           <Field label="Term end" required>
-            <input name="formerLadyInitiatorEnd" type="date" defaultValue={initial.formerLadyInitiatorEnd} required className={inputClass} />
+            <input
+              name="formerLadyInitiatorEnd"
+              type="date"
+              defaultValue={initial.formerLadyInitiatorEnd}
+              required
+              className={inputClass}
+            />
           </Field>
         </Section>
       ) : null}
@@ -396,8 +609,12 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
                 className="block w-full max-w-xs text-sm text-a-muted file:mr-3 file:rounded-full file:border-0 file:bg-a-brand file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-a-brand-dark"
                 disabled={uploading}
               />
-              {uploading ? <p className="mt-1 text-xs text-a-muted">Uploading photo…</p> : null}
-              {uploadError ? <p className="mt-1 text-xs text-a-danger">{uploadError}</p> : null}
+              {uploading ? (
+                <p className="mt-1 text-xs text-a-muted">Uploading photo…</p>
+              ) : null}
+              {uploadError ? (
+                <p className="mt-1 text-xs text-a-danger">{uploadError}</p>
+              ) : null}
               {photoUrl ? (
                 <button
                   type="button"
@@ -421,11 +638,13 @@ export default function MemberForm({ mode, initial }: { mode: "create" | "edit";
           disabled={isPending || uploading}
           className="a-btn a-btn-primary"
         >
-          {isPending ? "Saving…" : mode === "create" ? "Create member" : "Save changes"}
+          {isPending
+            ? "Saving…"
+            : mode === "create"
+              ? "Create member"
+              : "Save changes"}
         </button>
       </div>
     </form>
   );
 }
-
-
