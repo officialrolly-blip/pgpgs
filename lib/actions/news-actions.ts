@@ -90,8 +90,14 @@ export async function createNewsPostAction(
   }
 
   let coverImageUrl: string | null = null;
+  const coverUrl = requiredText(formData, "coverUrl");
   const cover = formData.get("cover");
-  if (cover instanceof File && cover.size > 0) {
+  if (coverUrl) {
+    if (!/^https?:\/\//i.test(coverUrl)) {
+      return { error: "The cover image link is invalid. Please re-upload the image." };
+    }
+    coverImageUrl = coverUrl;
+  } else if (cover instanceof File && cover.size > 0) {
     if (!cover.type.startsWith("image/")) {
       return { error: "The cover image must be an image file." };
     }
@@ -181,8 +187,14 @@ export async function updateNewsPostAction(
   }
 
   let newCover: string | undefined;
+  const coverUrl = requiredText(formData, "coverUrl");
   const cover = formData.get("cover");
-  if (cover instanceof File && cover.size > 0) {
+  if (coverUrl) {
+    if (!/^https?:\/\//i.test(coverUrl)) {
+      return { error: "The cover image link is invalid. Please re-upload the image." };
+    }
+    newCover = coverUrl;
+  } else if (cover instanceof File && cover.size > 0) {
     if (!cover.type.startsWith("image/")) {
       return { error: "The cover image must be an image file." };
     }

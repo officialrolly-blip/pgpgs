@@ -146,3 +146,67 @@ export async function uploadChapterLogo(
   const result = (await response.json()) as ImageKitUploadResult;
   return result;
 }
+
+/**
+ * Uploads a news post cover image directly from the browser to ImageKit.
+ * Returns the CDN url of the uploaded asset.
+ */
+export async function uploadNewsCover(
+  file: File,
+  title: string,
+): Promise<ImageKitUploadResult> {
+  if (!IMAGEKIT_PUBLIC_KEY) {
+    throw new Error(
+      "Image upload is not configured. Please set NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY.",
+    );
+  }
+
+  const safeName = (title || "news")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+
+  const extension =
+    file.type === "image/png"
+      ? "png"
+      : file.type === "image/webp"
+        ? "webp"
+        : "jpg";
+  const fileName = `${safeName}-cover-${Date.now()}.${extension}`;
+
+  const authResponse = await fetch("/api/imagekit-auth");
+  if (!authResponse.ok) {
+    const result = (await authResponse.json().catch(() => ({}))) as { error?: string };
+    throw new Error(result.error ?? "Image upload authentication failed.");
+  }
+  const auth = (await authResponse.json()) as {
+    token: string;
+    expire: number;
+    signature: string;
+  };
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("fileName", fileName);
+  formData.append("publicKey", IMAGEKIT_PUBLIC_KEY);
+  formData.append("token", auth.token);
+  formData.append("expire", String(auth.expire));
+  formData.append("signature", auth.signature);
+  formData.append("useUniqueFileName", "true");
+  formData.append("folderName", "news-posts");
+  formData.append("isPrivateFile", "false");
+
+  const response = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Cover upload failed (${response.status}): ${text}`);
+  }
+
+  const result = (await response.json()) as ImageKitUploadResult;
+  return result;
+}
