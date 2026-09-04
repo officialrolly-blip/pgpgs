@@ -339,6 +339,20 @@ export default function MemberRegisterPage() {
     setPhotoPreview(URL.createObjectURL(file));
   }
 
+  /** Clears the entire registration back to its empty state after a successful submission. */
+  function resetForm() {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setFormData({ ...initialData });
+    setPhotoFile(null);
+    setPhotoPreview("");
+    setPhotoUrl("");
+    setSubmissionError("");
+    setSubmittedId("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setShowModal(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function submitMember() {
     setSubmissionError("");
 
@@ -906,7 +920,7 @@ return (
               <div className="px-6 py-6 text-center">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={resetForm}
                   className="inline-flex w-full items-center justify-center rounded-sm bg-[var(--green)] px-6 py-3.5 text-sm font-bold tracking-[0.1em] text-white uppercase transition hover:bg-[var(--green-dark)] sm:w-auto"
                 >
                   Done
