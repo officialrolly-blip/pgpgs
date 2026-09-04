@@ -6,8 +6,18 @@ import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { newsPosts, pgpmembers } from "@/db/schema";
 
+type NewsCard = {
+  date: string;
+  category: string;
+  title: string;
+  description: string;
+  href: string;
+  action: string;
+  image?: string;
+};
+
 // Static fallback cards shown only while there are no published news posts yet.
-const newsFallback = [
+const newsFallback: NewsCard[] = [
   {
     date: "UPCOMING",
     category: "Community Service",
@@ -67,6 +77,7 @@ export default async function Home() {
       slug: newsPosts.slug,
       category: newsPosts.category,
       summary: newsPosts.summary,
+      coverImageUrl: newsPosts.coverImageUrl,
       publishedAt: newsPosts.publishedAt,
       createdAt: newsPosts.createdAt,
     })
@@ -77,13 +88,14 @@ export default async function Home() {
 
   const newsCards =
     publishedPosts.length > 0
-      ? publishedPosts.map((post) => ({
+      ? publishedPosts.map((post): NewsCard => ({
           date: formatShortDate(post.publishedAt ?? post.createdAt),
           category: post.category,
           title: post.title,
           description: post.summary,
           href: `/news/${post.slug}`,
           action: "Read the story",
+          image: post.coverImageUrl ?? undefined,
         }))
       : newsFallback;
 
@@ -180,11 +192,22 @@ export default async function Home() {
           <div className="grid gap-px bg-white/20 sm:grid-cols-3">
             {newsCards.map((item) => (
               <article key={item.href} className="flex min-h-[310px] flex-col bg-[var(--green-dark)] p-7 sm:p-8">
+                {item.image ? (
+                  <div className="relative mb-6 aspect-[16/9] overflow-hidden border border-white/15">
+                    <Image
+                      src={item.image}
+                      alt=""
+                      fill
+                      sizes="(max-width: 640px) 100vw, 480px"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between gap-4 text-[11px] font-semibold uppercase tracking-[0.18em]">
                   <span className="text-[var(--gold-light)]">{item.category}</span>
                   <span className="text-white/45">{item.date}</span>
                 </div>
-                <h3 className="mt-12 max-w-xs font-serif text-3xl font-semibold leading-tight text-white">
+                <h3 className={`max-w-xs font-serif text-3xl font-semibold leading-tight text-white ${item.image ? "mt-5" : "mt-12"}`}>
                   {item.title}
                 </h3>
                 <p className="mt-4 max-w-sm text-sm leading-6 text-white/65">
