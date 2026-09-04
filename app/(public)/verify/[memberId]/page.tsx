@@ -2,22 +2,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import QRCode from "qrcode";
 import { ilike } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
+import { PublicIdCardFront, PublicIdCardBack, type PublicIdMember } from "@/components/public-id-card";
 
 export const metadata: Metadata = { title: "Verify Membership ID" };
 export const dynamic = "force-dynamic";
-
-function initialsOf(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
 
 export default async function VerifyMemberPage({
   params,
@@ -28,17 +20,7 @@ export default async function VerifyMemberPage({
   const cleanId = decodeURIComponent(memberId).trim().toUpperCase();
 
   const [member] = await db
-    .select({
-      memberId: pgpmembers.memberId,
-      firstName: pgpmembers.firstName,
-      middleInitial: pgpmembers.middleInitial,
-      lastName: pgpmembers.lastName,
-      status: pgpmembers.status,
-      memberChapter: pgpmembers.memberChapter,
-      dateSurvived: pgpmembers.dateSurvived,
-      photoUrl: pgpmembers.photoUrl,
-      hasPhoto: pgpmembers.hasPhoto,
-    })
+    .select()
     .from(pgpmembers)
     .where(ilike(pgpmembers.memberId, cleanId))
     .limit(1);
@@ -46,10 +28,47 @@ export default async function VerifyMemberPage({
   if (!member) notFound();
 
   const isVerified = member.status !== "Neophyte";
-  const fullName = `${member.firstName}${
-    member.middleInitial ? ` ${member.middleInitial}.` : ""
-  } ${member.lastName}`;
-  const chapter = member.memberChapter ?? "Roxas City Capiz Chapter";
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.VERCEL_URL ??
+    "http://localhost:3000";
+  const verifyUrl = `${baseUrl}/verify/${member.memberId}`;
+
+  const qrCode = await QRCode.toDataURL(verifyUrl, {
+    width: 256,
+    margin: 1,
+    color: { dark: "#0f3d26", light: "#ffffff" },
+  });
+
+  const fullName = [member.firstName, member.middleInitial, member.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .toUpperCase();
+
+  const address = [member.street, member.barangay, member.municipality, member.province]
+    .filter(Boolean)
+    .join(", ");
+
+  const idMember: PublicIdMember = {
+    id: member.id,
+    memberId: member.memberId,
+    fullName,
+    status: member.status,
+    chapter: member.memberChapter || "—",
+    dateOfBirth: member.dateOfBirth,
+    placeOfBirth: member.placeOfBirth,
+    address,
+    dateSurvived: member.dateSurvived,
+    baptizedName: member.baptizedName,
+    photoUrl: member.photoUrl,
+    hasPhoto: member.hasPhoto,
+    guardianName: member.guardianName,
+    guardianAddress: member.guardianAddress,
+    guardianContact: member.guardianContact,
+    contactNumber: member.contactNumber,
+    qrCode,
+  };
 
   return (
     <main className="bg-[#fbf7ee] px-4 py-12 text-[#111111] sm:px-8 sm:py-16">
@@ -77,95 +96,83 @@ export default async function VerifyMemberPage({
           </header>
 
           <div className="px-6 py-8 sm:px-10">
-            <div className="flex items-start gap-4 rounded-2xl border border-[#d9e8de] bg-[#eef6f0] px-5 py-4">
-              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1b5c38] text-white">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-              </span>
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#0f3d26]">
-                  {isVerified ? "Verified PGPGS member" : "Record found"}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-[#37473c]">
-                  {isVerified
-                    ? "This ID number matches an active, legitimate member in the official PGPGS Roxas City chapter database."
-                    : "This ID number belongs to a neophyte record. It is not yet a certified full membership ID."}
-                </p>
+            {isVerified ? (
+              <div className="flex items-start gap-4 rounded-2xl border border-[#d9e8de] bg-[#eef6f0] px-5 py-4">
+                <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1b5c38] text-white">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#0f3d26]">
+                    Verified membership
+                  </p>
+                  <p className="mt-1 text-sm text-[#1c2c22]">
+                    This digital ID belongs to a registered member of the Pi Gamma
+                    Phi 1975 Gamma Sigma, Roxas City Capiz Chapter.
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-5 sm:flex-row">
-              <div className="shrink-0">
-                {member.hasPhoto && member.photoUrl ? (
-                  <Image
-                    src={member.photoUrl}
-                    unoptimized
-                    width={132}
-                    height={176}
-                    alt=""
-                    className="h-[176px] w-[132px] rounded-2xl border border-[#e0d6bf] bg-white object-cover"
-                  />
-                ) : (
-                  <div className="flex h-[176px] w-[132px] items-center justify-center rounded-2xl border border-[#e0d6bf] bg-[#e7f0ea] text-4xl font-bold text-[#1b5c38]">
-                    {initialsOf(fullName)}
-                  </div>
-                )}
+            ) : (
+              <div className="flex items-start gap-4 rounded-2xl border border-[#e8d9c4] bg-[#fdf6ec] px-5 py-4">
+                <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#b8860b] text-white">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 9v4M12 17h.01" />
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#7a5a1a]">
+                    Not yet verified
+                  </p>
+                  <p className="mt-1 text-sm text-[#1c2c22]">
+                    This member&apos;s status is &quot;Neophyte&quot; — membership has not yet been confirmed by the chapter administration.
+                  </p>
+                </div>
               </div>
+            )}
 
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8a7b52]">
-                  Name of member
-                </p>
-                <p className="mt-0.5 font-serif text-2xl font-bold uppercase text-[#0f3d26]">
-                  {fullName}
-                </p>
-                <p className="mt-0.5 font-mono text-base font-bold uppercase tracking-[0.06em] text-[#1b5c38]">
-                  {member.memberId.toUpperCase()}
-                </p>
-
-                <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8a7b52]">
-                      Status
-                    </p>
-                    <p className="mt-0.5 text-sm font-semibold capitalize text-[#1c2c22]">
-                      {member.status}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8a7b52]">
-                      Chapter
-                    </p>
-                    <p className="mt-0.5 text-sm font-semibold text-[#1c2c22]">
-                      {chapter}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8a7b52]">
-                      Date survived
-                    </p>
-                    <p className="mt-0.5 text-sm font-semibold text-[#1c2c22]">
-                      {member.dateSurvived}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8a7b52]">
-                      Verified ID
-                    </p>
-                    <p className="mt-0.5 text-sm font-semibold uppercase text-[#1c2c22]">
-                      {member.memberId.toUpperCase()}
-                    </p>
+            <div className="mt-7">
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
+                Digital ID card
+              </p>
+              <div className="mx-auto w-full max-w-[430px]">
+                <div style={{ aspectRatio: "85.6 / 53.98" }} className="overflow-hidden rounded-2xl border border-white/70 shadow-[0_14px_34px_rgba(15,61,38,0.22)]">
+                  <div className="relative h-full w-full">
+                    <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+                      <PublicIdCardFront member={idMember} />
+                    </div>
                   </div>
                 </div>
               </div>
+              <p className="mt-4 text-center text-[10px] text-[#8a7b52]">
+                Front of the official PGPGS digital membership ID
+              </p>
+            </div>
+
+            <div className="mt-7">
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
+                Back of ID card
+              </p>
+              <div className="mx-auto w-full max-w-[430px]">
+                <div style={{ aspectRatio: "85.6 / 53.98" }} className="overflow-hidden rounded-2xl border border-white/70 shadow-[0_14px_34px_rgba(15,61,38,0.22)]">
+                  <div className="relative h-full w-full">
+                    <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+                      <PublicIdCardBack member={idMember} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-4 text-center text-[10px] text-[#8a7b52]">
+                Back of the official PGPGS digital membership ID
+              </p>
             </div>
 
             <div className="mt-7 rounded-2xl bg-[#0f3d26]/[0.05] px-5 py-4">
               <p className="text-xs leading-6 text-[#0f3d26]">
                 This page is the official verification result for the
-                QR-encoded membership ID on your PGPGS ID card. If you scanned
-                this QR code from a physical ID, the card belongs to a
+                QR-encoded membership ID on the PGPGS ID card. If you scanned
+                this QR code from a physical or digital ID, the card belongs to a
                 legitimate member of the Pi Gamma Phi 1975 Gamma Sigma, Roxas
                 City Capiz Chapter.
               </p>

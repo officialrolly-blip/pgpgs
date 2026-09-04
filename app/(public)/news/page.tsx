@@ -35,7 +35,7 @@ export default async function NewsIndexPage() {
 
   return (
     <PageShell title="News & Events">
-      <p className="mb-10 max-w-2xl text-base leading-7">
+      <p className="mb-10 max-w-2xl text-base leading-7 text-justify">
         Keep up with the stories, service, and fellowship shaping the Pi Gamma Phi
         Gamma Sigma Roxas City Capiz Chapter.
       </p>
@@ -79,7 +79,7 @@ export default async function NewsIndexPage() {
                 <h2 className="mt-3 font-serif text-2xl font-semibold leading-snug text-[var(--green-dark)] transition group-hover:text-[var(--green)]">
                   {post.title}
                 </h2>
-                <p className="mt-3 text-sm leading-6 text-black/60">{post.summary}</p>
+                <p className="mt-3 text-sm leading-6 text-black/60 text-justify">{post.summary}</p>
                 <span className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-semibold text-[var(--green)]">
                   Read the story
                   <span aria-hidden="true" className="text-lg leading-none transition group-hover:translate-x-1">

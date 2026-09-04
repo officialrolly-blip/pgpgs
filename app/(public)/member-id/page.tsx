@@ -395,18 +395,35 @@ function IdCardBack({ member }: { member: IdMember }) {
           <Image src="/logo2.png" alt="PGPGS" width={36} height={36} className="h-full w-full object-contain" />
         </div>
       </header>
-      <div className="watermark-container pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0" style={{ transform: 'rotate(-30deg) scale(1.8)' }}>
-          {[...Array(12)].map((_, row) => (
-            <div key={row} className="flex justify-around" style={{ marginTop: row * 30 }}>
-              {[...Array(8)].map((_, col) => (
-                <p key={col} className="text-sm font-bold uppercase tracking-[0.1em] text-[#1b5c38]" style={{ opacity: 0.06 }}>
-                  PGPGS
-                </p>
-              ))}
-            </div>
-          ))}
-        </div>
+      <div className="watermark-container pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        {[...Array(12)].map((_, row) => (
+          <div
+            key={row}
+            className="absolute flex justify-around"
+            style={{
+              top: row * 32 - 32,
+              left: '-8%',
+              right: '-8%',
+              transform: `translateX(${row % 2 === 0 ? 0 : -26}px)`,
+            }}
+          >
+            {[...Array(11)].map((_, col) => (
+              <span
+                key={col}
+                className="select-none font-bold uppercase tracking-[0.14em] text-[#1b5c38]"
+                style={{
+                  fontSize: '10px',
+                  opacity: 0.06,
+                  transform: 'rotate(80deg)',
+                  transformOrigin: 'center center',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                PGPGS
+              </span>
+            ))}
+          </div>
+        ))}
       </div>
       <div className="relative z-10 flex flex-1 gap-2 px-3 py-2">
         <div className="flex min-w-0 flex-[2] flex-col gap-1.5">

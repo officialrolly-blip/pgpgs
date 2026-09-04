@@ -73,13 +73,13 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
         </div>
       ) : null}
 
-      <p className="mt-6 max-w-2xl text-lg leading-8 font-medium text-[var(--green-dark)]">
+      <p className="mt-6 max-w-2xl text-lg leading-8 font-medium text-[var(--green-dark)] text-justify">
         {post.summary}
       </p>
 
       <div className="mt-6 space-y-5">
         {paragraphs.map((paragraph, index) => (
-          <p key={index} className="max-w-2xl text-base leading-8 text-black/70">
+          <p key={index} className="max-w-2xl text-base leading-8 text-black/70 text-justify">
             {paragraph}
           </p>
         ))}
