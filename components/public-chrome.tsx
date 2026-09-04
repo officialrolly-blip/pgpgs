@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
+import KnyteChatbot from "@/components/knyte-chatbot";
 import type { ReactNode } from "react";
 
 export default function PublicChrome({ children }: { children: ReactNode }) {
@@ -15,6 +16,7 @@ export default function PublicChrome({ children }: { children: ReactNode }) {
       <Header />
       {children}
       <Footer />
+      <KnyteChatbot />
     </>
   );
 }
