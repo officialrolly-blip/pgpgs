@@ -196,10 +196,6 @@ function Field({
   disabled?: boolean;
 }) {
   function handleChange(input: string) {
-    if (name === "middleInitial") {
-      onChange(name, input.replace(/[^a-z]/gi, "").slice(0, 1).toUpperCase());
-      return;
-    }
     onChange(name, type === "text" ? capitalizeWords(input) : input);
   }
 
@@ -285,6 +281,7 @@ function Avatar({
 export default function MemberRegisterPage() {
   const [formData, setFormData] = useState<MemberFormData>(initialData);
   const [chapters, setChapters] = useState<Array<{ id: string; name: string; address: string; organizer: string }>>([]);
+  const [chaptersLoading, setChaptersLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
@@ -317,10 +314,32 @@ export default function MemberRegisterPage() {
         }
       } catch (error) {
         console.error("Failed to fetch chapters:", error);
+      } finally {
+        setChaptersLoading(false);
       }
     }
     void fetchChapters();
   }, []);
+
+  /** Renders a chapter dropdown's placeholder plus its options, showing a loading state while chapters are being fetched. */
+  function renderChapterOptions(placeholder: string) {
+    return (
+      <>
+        {chaptersLoading ? (
+          <option value="" disabled>
+            Loading chapters...
+          </option>
+        ) : (
+          <option value="">{placeholder}</option>
+        )}
+        {chapters.map((chapter) => (
+          <option key={chapter.id} value={chapter.name}>
+            {chapter.name}
+          </option>
+        ))}
+      </>
+    );
+  }
 
   function updateField(name: keyof MemberFormData, value: string) {
     setFormData((current) => ({ ...current, [name]: value }));
@@ -503,7 +522,7 @@ return (
           <Section eyebrow="01 / About you" title="Personal Information">
             <Field label="First Name" name="firstName" value={formData.firstName} onChange={updateField} />
             <Field label="Last Name" name="lastName" value={formData.lastName} onChange={updateField} />
-            <Field label="Middle Initial" name="middleInitial" value={formData.middleInitial} onChange={updateField} />
+            <Field label="Middle Initial (optional)" name="middleInitial" value={formData.middleInitial} onChange={updateField} required={false} hint="Leave blank if you don't have a middle name." />
             <Field label="Birthday" name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={(name, value) => setFormData((current) => ({ ...current, [name]: value, age: calculateAge(value) }))} />
             <Field label="Age" name="age" type="number" value={calculatedAge} placeholder="Auto-generated" disabled hint="Computed automatically from your birthday." onChange={updateField} />
             <Field label="Place of Birth" name="placeOfBirth" value={formData.placeOfBirth} onChange={updateField} />
@@ -562,8 +581,7 @@ return (
                 <label className="block text-sm font-semibold text-[var(--green-dark)] sm:col-span-2">
                   PGPGS Chapter
                   <select className={selectClass} name="grandKnightChapter" value={formData.grandKnightChapter} onChange={(event) => updateField("grandKnightChapter", event.target.value)} required>
-                    <option value="">Select chapter</option>
-                    {chapters.map((chapter) => <option key={chapter.id} value={chapter.name}>{chapter.name}</option>)}
+                    {renderChapterOptions("Select chapter")}
                   </select>
                 </label>
                 <Field label="Date Started" name="grandKnightStart" type="date" value={formData.grandKnightStart} onChange={updateField} required />
@@ -580,8 +598,7 @@ return (
                 <label className="block text-sm font-semibold text-[var(--green-dark)] sm:col-span-2">
                   PGPGS Chapter
                   <select className={selectClass} name="grandKnightChapter" value={formData.grandKnightChapter} onChange={(event) => updateField("grandKnightChapter", event.target.value)} required>
-                    <option value="">Select chapter</option>
-                    {chapters.map((chapter) => <option key={chapter.id} value={chapter.name}>{chapter.name}</option>)}
+                    {renderChapterOptions("Select chapter")}
                   </select>
                 </label>
               </div>
@@ -596,8 +613,7 @@ return (
                 <label className="block text-sm font-semibold text-[var(--green-dark)] sm:col-span-2">
                   PGPGS Chapter
                   <select className={selectClass} name="chapterOrganizerChapter" value={formData.chapterOrganizerChapter} onChange={(event) => updateField("chapterOrganizerChapter", event.target.value)} required>
-                    <option value="">Select chapter</option>
-                    {chapters.map((chapter) => <option key={chapter.id} value={chapter.name}>{chapter.name}</option>)}
+                    {renderChapterOptions("Select chapter")}
                   </select>
                 </label>
               </div>
@@ -618,12 +634,7 @@ return (
                     onChange={(event) => updateField("memberChapter", event.target.value)}
                     required
                   >
-                    <option value="">Select a chapter</option>
-                    {chapters.map((chapter) => (
-                      <option key={chapter.id} value={chapter.name}>
-                        {chapter.name}
-                      </option>
-                    ))}
+                    {renderChapterOptions("Select a chapter")}
                   </select>
                 </label>
               </div>
@@ -671,12 +682,7 @@ return (
                     onChange={(event) => updateField("formerMasterInitiatorChapter", event.target.value)}
                     required
                   >
-                    <option value="">Select chapter</option>
-                    {chapters.map((chapter) => (
-                      <option key={chapter.id} value={chapter.name}>
-                        {chapter.name}
-                      </option>
-                    ))}
+                    {renderChapterOptions("Select chapter")}
                   </select>
                 </label>
                 <label className="block text-sm font-semibold text-[var(--green-dark)]">
@@ -716,12 +722,7 @@ return (
                     onChange={(event) => updateField("formerLadyInitiatorChapter", event.target.value)}
                     required
                   >
-                    <option value="">Select chapter</option>
-                    {chapters.map((chapter) => (
-                      <option key={chapter.id} value={chapter.name}>
-                        {chapter.name}
-                      </option>
-                    ))}
+                    {renderChapterOptions("Select chapter")}
                   </select>
                 </label>
                 <label className="block text-sm font-semibold text-[var(--green-dark)]">
@@ -761,12 +762,7 @@ return (
                     onChange={(event) => updateField("formerPresidentChapter", event.target.value)}
                     required
                   >
-                    <option value="">Select chapter</option>
-                    {chapters.map((chapter) => (
-                      <option key={chapter.id} value={chapter.name}>
-                        {chapter.name}
-                      </option>
-                    ))}
+                    {renderChapterOptions("Select chapter")}
                   </select>
                 </label>
                 <Field label="Date Started" name="formerPresidentStart" type="date" value={formData.formerPresidentStart} onChange={updateField} required />
@@ -789,12 +785,7 @@ return (
                     onChange={(event) => updateField("formerVicePresidentChapter", event.target.value)}
                     required
                   >
-                    <option value="">Select chapter</option>
-                    {chapters.map((chapter) => (
-                      <option key={chapter.id} value={chapter.name}>
-                        {chapter.name}
-                      </option>
-                    ))}
+                    {renderChapterOptions("Select chapter")}
                   </select>
                 </label>
                 <label className="block text-sm font-semibold text-[var(--green-dark)]">
