@@ -82,7 +82,6 @@ export const navigation: NavItem[] = [
     ],
   },
   { label: "Our Alumni", href: "/alumni" },
-  { label: "News & Events", href: "/news" },
 ];
 
 export const cta = {
