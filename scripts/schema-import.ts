@@ -1,0 +1,1 @@
+export { pgpmembers } from "../db/schema";
