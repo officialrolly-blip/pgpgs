@@ -58,6 +58,10 @@ export const navigation: NavItem[] = [
         label: "PGPGS Across Capiz",
         href: "/about/pgpgs-across-capiz",
       },
+      {
+        label: "Our Members",
+        href: "/about/our-members",
+      },
     ],
   },
   {

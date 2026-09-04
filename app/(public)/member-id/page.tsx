@@ -120,31 +120,6 @@ export default function MemberIdPage() {
     } finally { setLoading(false); }
   }, [selectedMember, dateSurvived]);
 
-  const login = useCallback(async () => {
-    if (!loginMemberId || !loginPassword) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/member-id/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberId: loginMemberId.trim().toUpperCase(), password: loginPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Login failed."); setLoading(false); return; }
-      const meRes = await fetch("/api/member-id/me");
-      const meData = await meRes.json();
-      if (!meRes.ok) { setError(meData.error ?? "Failed to load your ID."); setLoading(false); return; }
-      setIdMember(meData.member);
-      setPhase("id");
-      // Capture ID card as image after render
-      setTimeout(() => {
-        captureIdCard();
-      }, 500);
-    } catch { setError("Something went wrong. Please try again."); }
-    finally { setLoading(false); }
-  }, [loginMemberId, loginPassword]);
-
   const captureIdCard = useCallback(async () => {
     // Capture front face
     if (idCardFrontRef.current) {
@@ -179,6 +154,31 @@ export default function MemberIdPage() {
       }
     }
   }, []);
+
+  const login = useCallback(async () => {
+    if (!loginMemberId || !loginPassword) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/member-id/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: loginMemberId.trim().toUpperCase(), password: loginPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Login failed."); setLoading(false); return; }
+      const meRes = await fetch("/api/member-id/me");
+      const meData = await meRes.json();
+      if (!meRes.ok) { setError(meData.error ?? "Failed to load your ID."); setLoading(false); return; }
+      setIdMember(meData.member);
+      setPhase("id");
+      // Capture ID card as image after render
+      setTimeout(() => {
+        captureIdCard();
+      }, 500);
+    } catch { setError("Something went wrong. Please try again."); }
+    finally { setLoading(false); }
+  }, [loginMemberId, loginPassword, captureIdCard]);
 
   const logout = useCallback(async () => {
     await fetch("/api/member-id/logout", { method: "POST" });
@@ -229,7 +229,7 @@ export default function MemberIdPage() {
               )}
               {!searchLoading && query.trim().length >= 2 && results.length === 0 && (
                 <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-[#e6dcc4] bg-white px-4 py-3 shadow-xl">
-                  <p className="text-sm text-[#8a7b52]">No members found matching "{query.trim()}"</p>
+                  <p className="text-sm text-[#8a7b52]">No members found matching &quot;{query.trim()}&quot;</p>
                 </div>
               )}
             </div>

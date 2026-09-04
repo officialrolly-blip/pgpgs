@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq, sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
-import { chapters, pgpmembers } from "@/db/schema";
+import { pgpmembers } from "@/db/schema";
 import { getPublishedChapterNames } from "@/lib/chapters";
 
 export const runtime = "nodejs";

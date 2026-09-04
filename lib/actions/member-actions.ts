@@ -89,7 +89,11 @@ function parseMemberForm(
     formerLadyInitiatorChapter: null,
     formerLadyInitiatorStart: null,
     formerLadyInitiatorEnd: null,
-    grandKnight: optionalStr(formData, "grandKnight"),
+    memberChapter: null,
+    grandKnightChapter: null,
+    grandKnightStart: null,
+    grandKnightEnd: null,
+    chapterOrganizerChapter: null,
     photoUrl: optionalStr(formData, "photoUrl"),
     hasPhoto:
       formData.get("hasPhoto") === "on" || formData.get("hasPhoto") === "true",
@@ -130,10 +134,62 @@ function validateStatusFields(
   validChapterNames: Set<string>,
 ): { values?: Record<string, unknown>; error?: string } {
   const isOfficer = status === "PGP-GS Roxas City Chapter Officer";
+  const isMemberOrAlumni = status === "Member" || status === "Alumni";
+  const isFormerGrandKnight = status === "Former Grand Knight";
+  const isElectedGrandKnight = status === "Elected Grand Knight";
+  const isChapterOrganizer = status === "Chapter Organizer";
   const isFormerPresident = status === "Former Chapter President";
   const isFormerVicePresident = status === "Former Chapter Vice President";
   const isFormerMasterInitiator = status === "Former Chapter Master Initiator";
   const isFormerLadyInitiator = status === "Former Chapter Lady Initiator";
+
+  // Chapter selection for regular members — same rule as the public
+  // members/register form and the /api/pgpmembers route.
+  if (isMemberOrAlumni) {
+    const chapter = str(formData, "memberChapter");
+    if (!chapter) return { error: "Please select a chapter." };
+    if (!validChapterNames.has(chapter)) {
+      return { error: "Please select a valid PGPGS chapter." };
+    }
+    values.memberChapter = chapter;
+  }
+
+  if (isChapterOrganizer) {
+    const chapter = str(formData, "chapterOrganizerChapter");
+    if (!chapter) {
+      return { error: "Please select the PGPGS chapter you organize." };
+    }
+    if (!validChapterNames.has(chapter)) {
+      return { error: "Please select a valid PGPGS chapter." };
+    }
+    values.chapterOrganizerChapter = chapter;
+  }
+
+  if (isFormerGrandKnight || isElectedGrandKnight) {
+    const chapter = str(formData, "grandKnightChapter");
+    if (!chapter) {
+      return {
+        error: "Please select the PGPGS chapter for your Grand Knight role.",
+      };
+    }
+    if (!validChapterNames.has(chapter)) {
+      return { error: "Please select a valid PGPGS chapter." };
+    }
+    values.grandKnightChapter = chapter;
+  }
+
+  if (isFormerGrandKnight) {
+    const start = str(formData, "grandKnightStart");
+    const end = str(formData, "grandKnightEnd");
+    if (!start || !end) {
+      return {
+        error:
+          "Both the date started and date ended are required for a former Grand Knight.",
+      };
+    }
+    values.grandKnightStart = start;
+    values.grandKnightEnd = end;
+  }
 
   if (isOfficer) {
     const position = str(formData, "officerPosition");
