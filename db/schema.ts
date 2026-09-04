@@ -120,6 +120,26 @@ export const chapters = pgTable("chapters", {
     .notNull(),
 });
 
+export const newsPosts = pgTable("news_posts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  category: text("category").notNull().default("News"),
+  summary: text("summary").notNull(),
+  body: text("body").notNull(),
+  coverImageUrl: text("cover_image_url"),
+  authorName: text("author_name"),
+  published: boolean("published").notNull().default(false),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  publishedBy: text("published_by"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export const registrations = pgTable("registrations", {
   id: uuid("id").defaultRandom().primaryKey(),
   memberId: text("member_id").notNull().unique(),

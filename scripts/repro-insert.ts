@@ -99,7 +99,7 @@ async function main() {
       formerLadyInitiatorStart: isFormerLadyInitiator ? body.formerLadyInitiatorStart! : null,
       formerLadyInitiatorEnd: isFormerLadyInitiator ? body.formerLadyInitiatorEnd! : null,
       grandKnight: body.grandKnight ? body.grandKnight : null,
-      grandKnightChapter: isFormerGrandKnight || body.status === "Elected Grand Knight" ? body.grandKnightChapter! : null,
+      grandKnightChapter: isFormerGrandKnight || (body as { status: string }).status === "Elected Grand Knight" ? body.grandKnightChapter! : null,
       grandKnightStart: isFormerGrandKnight ? body.grandKnightStart! : null,
       grandKnightEnd: isFormerGrandKnight ? body.grandKnightEnd! : null,
       chapterOrganizerChapter: isChapterOrganizer ? body.chapterOrganizerChapter! : null,

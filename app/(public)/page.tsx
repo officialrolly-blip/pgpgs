@@ -2,11 +2,12 @@ import HeroSlider from "@/components/hero-slider";
 import OfficerMarquee, { type HomepageOfficer } from "@/components/officer-marquee";
 import Image from "next/image";
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { pgpmembers } from "@/db/schema";
+import { newsPosts, pgpmembers } from "@/db/schema";
 
-const newsAndEvents = [
+// Static fallback cards shown only while there are no published news posts yet.
+const newsFallback = [
   {
     date: "UPCOMING",
     category: "Community Service",
@@ -38,6 +39,14 @@ const newsAndEvents = [
 
 export const dynamic = "force-dynamic";
 
+function formatShortDate(date: Date) {
+  return date.toLocaleDateString("en-PH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default async function Home() {
   const officers: HomepageOfficer[] = await db
     .select({
@@ -51,6 +60,32 @@ export default async function Home() {
     .from(pgpmembers)
     .where(eq(pgpmembers.status, "PGP-GS Roxas City Chapter Officer"))
     .orderBy(asc(pgpmembers.createdAt));
+
+  const publishedPosts = await db
+    .select({
+      title: newsPosts.title,
+      slug: newsPosts.slug,
+      category: newsPosts.category,
+      summary: newsPosts.summary,
+      publishedAt: newsPosts.publishedAt,
+      createdAt: newsPosts.createdAt,
+    })
+    .from(newsPosts)
+    .where(eq(newsPosts.published, true))
+    .orderBy(desc(newsPosts.publishedAt))
+    .limit(3);
+
+  const newsCards =
+    publishedPosts.length > 0
+      ? publishedPosts.map((post) => ({
+          date: formatShortDate(post.publishedAt ?? post.createdAt),
+          category: post.category,
+          title: post.title,
+          description: post.summary,
+          href: `/news/${post.slug}`,
+          action: "Read the story",
+        }))
+      : newsFallback;
 
   const president = officers.find((officer) => officer.position === "President");
   const presidentPhotoUrl =
@@ -143,8 +178,8 @@ export default async function Home() {
           </div>
 
           <div className="grid gap-px bg-white/20 sm:grid-cols-3">
-            {newsAndEvents.map((item) => (
-              <article key={item.title} className="flex min-h-[310px] flex-col bg-[var(--green-dark)] p-7 sm:p-8">
+            {newsCards.map((item) => (
+              <article key={item.href} className="flex min-h-[310px] flex-col bg-[var(--green-dark)] p-7 sm:p-8">
                 <div className="flex items-center justify-between gap-4 text-[11px] font-semibold uppercase tracking-[0.18em]">
                   <span className="text-[var(--gold-light)]">{item.category}</span>
                   <span className="text-white/45">{item.date}</span>
@@ -165,6 +200,18 @@ export default async function Home() {
               </article>
             ))}
           </div>
+
+          {publishedPosts.length > 0 ? (
+            <div className="mt-10 text-center">
+              <Link
+                href="/news"
+                className="inline-flex items-center gap-3 border border-white/30 px-6 py-3.5 text-sm font-semibold tracking-wide text-white transition hover:border-[var(--gold-light)] hover:text-[var(--gold-light)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--gold-light)]"
+              >
+                View all news
+                <span aria-hidden="true" className="text-lg leading-none">→</span>
+              </Link>
+            </div>
+          ) : null}
         </div>
       </section>
 
