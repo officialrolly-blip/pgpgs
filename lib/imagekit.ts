@@ -56,7 +56,7 @@ export async function uploadMemberPhoto(
   formData.append("expire", String(auth.expire));
   formData.append("signature", auth.signature);
   formData.append("useUniqueFileName", "true");
-  formData.append("folderName", "pgpmembers");
+  formData.append("folder", "/pgpmembers");
   formData.append("isPrivateFile", "false");
 
   const response = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
@@ -130,7 +130,7 @@ export async function uploadChapterLogo(
   formData.append("expire", String(auth.expire));
   formData.append("signature", auth.signature);
   formData.append("useUniqueFileName", "true");
-  formData.append("folderName", "chapter-logos");
+  formData.append("folder", "/chapter-logos");
   formData.append("isPrivateFile", "false");
 
   const response = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
@@ -194,7 +194,7 @@ export async function uploadNewsCover(
   formData.append("expire", String(auth.expire));
   formData.append("signature", auth.signature);
   formData.append("useUniqueFileName", "true");
-  formData.append("folderName", "news-posts");
+  formData.append("folder", "/news-posts");
   formData.append("isPrivateFile", "false");
 
   const response = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
