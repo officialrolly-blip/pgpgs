@@ -30,18 +30,33 @@ export type NewsFormPost = {
 
 export default function NewsForm({ post }: { post?: NewsFormPost | null }) {
   const isEditing = Boolean(post);
-  const action = isEditing ? updateNewsPostAction : createNewsPostAction;
-  const [state, formAction, isPending] = useActionState<NewsActionState, FormData>(
-    action,
-    {},
-  );
+  const serverAction = isEditing ? updateNewsPostAction : createNewsPostAction;
 
   const [coverUrl, setCoverUrl] = useState(post?.coverImageUrl ?? "");
   const [removeCover, setRemoveCover] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // In create mode, clear the form right after a successful submission so the
+  // admin can start writing the next post immediately. The reset runs inside
+  // the action (not in an effect) so it fires once per submission, even when
+  // the success message is identical to the previous one.
+  const [state, formAction, isPending] = useActionState<NewsActionState, FormData>(
+    async (previousState, formData) => {
+      const result = await serverAction(previousState, formData);
+      if (!isEditing && result.success) {
+        formRef.current?.reset();
+        setCoverUrl("");
+        setRemoveCover(false);
+        setCoverError("");
+      }
+      return result;
+    },
+    {},
+  );
 
   async function handleCoverSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -76,7 +91,7 @@ export default function NewsForm({ post }: { post?: NewsFormPost | null }) {
   }
 
   return (
-    <form action={formAction} className="a-card max-w-2xl p-6">
+    <form ref={formRef} action={formAction} className="a-card max-w-2xl p-6">
       {post ? <input type="hidden" name="postId" value={post.id} /> : null}
       {removeCover ? <input type="hidden" name="removeCover" value="on" /> : null}
       {coverUrl && !removeCover ? (
@@ -89,9 +104,17 @@ export default function NewsForm({ post }: { post?: NewsFormPost | null }) {
         </p>
       ) : null}
       {state.success ? (
-        <p role="status" className="rounded-xl border border-[#a6f4c5] bg-a-success-soft px-4 py-3 text-sm font-medium text-a-success">
-          {state.success}
-        </p>
+        <div
+          role="status"
+          className="rounded-xl border border-[#a6f4c5] bg-a-success-soft px-4 py-3 text-sm font-medium text-a-success"
+        >
+          <p>{state.success}</p>
+          {!isEditing ? (
+            <p className="mt-1 text-xs font-medium text-a-success/80">
+              The form has been cleared and is ready for your next post.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="grid gap-5">
