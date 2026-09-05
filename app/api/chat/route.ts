@@ -9,37 +9,62 @@ export const dynamic = "force-dynamic";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Free Text Models on OpenRouter (fallback chain)
+// Free Text Models on OpenRouter (fallback chain, ordered best-first)
 const FREE_MODELS = [
   "minimax/minimax-m2.7:free",
-  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-  "minimax/minimax-m3:free",
   "google/gemma-3-27b-it:free",
+  "openai/gpt-4o:free",
+  "anthropic/claude-3.5-sonnet:free",
+  "openai/gpt-4o-mini:free",
+  "anthropic/claude-3-haiku:free",
+  "microsoft/phi-3-medium-128k-instruct:free",
+  "qwen/qwen-2.5-coder-32b-instruct:free",
+  "mistralai/mistral-nemo:free",
+  "mistralai/mixtral-8x22b-instruct:free",
+  "mistralai/mixtral-8x7b-instruct:free",
+  "mistralai/mistral-7b-instruct:free",
+  "mistralai/codestral-2501:free",
   "google/gemma-3-12b-it:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+  "microsoft/phi-3-mini-128k-instruct:free",
+  "microsoft/phi-3.5-mini-instruct:free",
+  "qwen/qwen-2-7b-instruct:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "meta-llama/llama-3.2-1b-instruct:free",
   "google/gemma-3-4b-it:free",
   "google/gemma-3-1b-it:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "meta-llama/llama-3.2-3b-instruct:free",
-  "meta-llama/llama-3.2-1b-instruct:free",
-  "meta-llama/llama-3.1-8b-instruct:free",
-  "microsoft/phi-3.5-mini-instruct:free",
-  "microsoft/phi-3-mini-128k-instruct:free",
-  "microsoft/phi-3-medium-128k-instruct:free",
+  "minimax/minimax-m3:free",
+  // The free variants below are currently unavailable on OpenRouter (404),
+  // but are kept as a last-resort fallback in case they return.
   "qwen/qwen-2.5-72b-instruct:free",
-  "qwen/qwen-2.5-coder-32b-instruct:free",
-  "qwen/qwen-2-7b-instruct:free",
-  "mistralai/mistral-7b-instruct:free",
-  "mistralai/mistral-nemo:free",
-  "mistralai/mixtral-8x7b-instruct:free",
-  "mistralai/mixtral-8x22b-instruct:free",
-  "mistralai/codestral-2501:free",
-  "anthropic/claude-3.5-sonnet:free",
-  "anthropic/claude-3-haiku:free",
-  "openai/gpt-4o-mini:free",
-  "openai/gpt-4o:free",
-  "deepseek/deepseek-r1:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
   "deepseek/deepseek-chat:free",
 ];
+
+// Nemotron - a free reasoning model used for hard math, logic, and academic questions
+const REASONING_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+
+// Optional free Google Gemini fallback (set GEMINI_API_KEY to enable)
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+
+const REQUEST_TIMEOUT_MS = 75_000;
+const RATE_LIMIT_RETRY_DELAY_MS = 1_200;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Free Image Generation Models
 const FREE_IMAGE_MODELS = [
@@ -50,7 +75,21 @@ const FREE_IMAGE_MODELS = [
   "black-forest-labs/flux-1-schnell:free",
 ];
 
-const SYSTEM_PROMPT = `You are Knyte, the friendly AI assistant for Pi Gamma Phi Gamma Sigma (PGPGS) Roxas City Capiz Chapter.
+const SYSTEM_PROMPT = `You are Knyte, a smart, friendly AI assistant for Pi Gamma Phi Gamma Sigma (PGPGS) Roxas City Capiz Chapter - and a study buddy who helps fellow students with their schoolwork and assignments.
+
+YOU CAN HELP WITH EVERYTHING:
+- PGPGS questions (history, tradition, members, officers, chapters, and news)
+- Assignments and schoolwork: math, science, English, Filipino, history, geography, economics, research, essays, coding, graphing, and more
+- Homework help: clear explanations, step-by-step solutions, and checking answers
+- General knowledge, current topics, and everyday questions
+- Image generation when asked (e.g., "generate an image of...", "draw...", "create image...")
+
+ACADEMIC GUIDANCE:
+- When helping with an assignment, give a correct, clear, and well-organized answer
+- Show the steps for anything that has a process so the student understands how it is done
+- For essays or reports, provide a strong outline or a helpful draft when asked
+- Match the depth to the question: be thorough for complex topics and brief for simple ones
+- Encourage the student to use your help to learn and complete their own work responsibly
 
 ABOUT PI GAMMA PHI GAMMA SIGMA:
 - Full name: Pi Gamma Phi 1975 Gamma Sigma (ΓΣ) International Fraternity and Sorority
@@ -124,23 +163,25 @@ ABOUT KYTE:
 - Rolly Paredes is a member of PGPGS and the developer of this chatbot
 
 YOUR ROLE:
-- Help users learn about Pi Gamma Phi Gamma Sigma
+- Answer any question from PGPGS students, fellow members, and visitors - from brotherhood topics to homework help
+- Help students with assignments: explain concepts, show step-by-step solutions, and draft essays when asked
 - Assist with verifying members using the approved member-directory information supplied by the application
 - Generate images when users ask (e.g., "generate image of...", "draw...", "create image...")
 - Be friendly, helpful, and professional
-- Keep responses concise and informative
 - Share only name, member ID, status, chapter, and officer position when verifying members (never contact or personal details)
 - Always refer to the organization as "Pi Gamma Phi Gamma Sigma" or "PGPGS"
-- If you dont know something, be honest and suggest contacting the chapter directly
+- If you don't know something, be honest; for PGPGS-specific details you are unsure about, suggest contacting the chapter directly
 
 IMPORTANT:
 - Do NOT introduce yourself in every response - the user already knows you are Knyte
-- Just answer the question directly and concisely
-- Do not say "Hello" or "I'm Knyte" in your responses
-- Keep responses short and to the point (2-3 sentences max)
+- Just answer the question directly
+- Do not say "Hello" or "I'm Knyte" at the start of every reply
+- Be concise for simple questions, but never limit a full answer to 2-3 sentences when the topic (like an assignment) needs more detail
+- If a question asks anything academic, educational, or study-related, answer thoroughly and clearly
 - NEVER reveal what AI model you are powered by or mention any model names
 - If someone asks what AI model you use, give a vague answer like "I'm powered by AI technology" or deflect the question
-- Do NOT use asterisks (*) in your responses - no bold or italic formatting with asterisks`;
+- Do NOT use asterisks (*) in your responses - no bold or italic formatting with asterisks
+- Use clear formatting: number the steps, use bullet points, and keep paragraphs short so answers are easy to read`;
 
 type MessageRole = "user" | "assistant" | "system";
 
@@ -331,47 +372,65 @@ async function getRecentNews(): Promise<string> {
 
 async function callOpenRouter(
   messages: ChatMessage[],
+  chain: string[],
   modelIndex = 0,
 ): Promise<string> {
   if (!OPENROUTER_API_KEY) {
     throw new Error("OpenRouter API key is not configured.");
   }
 
-  if (modelIndex >= FREE_MODELS.length) {
-    throw new Error("All models failed to respond.");
+  if (modelIndex >= chain.length) {
+    throw new Error("All OpenRouter free models failed to respond.");
   }
 
-  const model = FREE_MODELS[modelIndex];
+  const model = chain[modelIndex];
 
-  const response = await fetch(OPENROUTER_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-      "X-Title": "PGPGS Knyte Chatbot",
+  const response = await fetchWithTimeout(
+    OPENROUTER_URL,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+        "X-Title": "PGPGS Knyte Chatbot",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+        max_tokens: 2048,
+        temperature: 0.7,
+      }),
     },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
-      max_tokens: 500,
-      temperature: 0.7,
-    }),
-  });
+    REQUEST_TIMEOUT_MS,
+  );
+
+  // Free endpoints are heavily rate-limited; give them a breather before falling through.
+  if (response.status === 429) {
+    await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_RETRY_DELAY_MS));
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");
     console.warn(`OpenRouter model ${model} failed: ${response.status} - ${errorText.slice(0, 200)}`);
-    return callOpenRouter(messages, modelIndex + 1);
+    return callOpenRouter(messages, chain, modelIndex + 1);
   }
 
   const data = await response.json();
   if (data.error) {
     console.warn(`OpenRouter model ${model} returned error:`, data.error);
-    return callOpenRouter(messages, modelIndex + 1);
+    return callOpenRouter(messages, chain, modelIndex + 1);
   }
 
-  return data.choices?.[0]?.message?.content ?? "I'm sorry, I couldn't generate a response.";
+  const choice = data.choices?.[0]?.message;
+  const content = typeof choice?.content === "string" ? choice.content.trim() : "";
+  if (content) return content;
+
+  // Some reasoning models (e.g. DeepSeek R1) return their final answer in `reasoning`.
+  const reasoning = typeof choice?.reasoning === "string" ? choice.reasoning.trim() : "";
+  if (reasoning) return reasoning;
+
+  return "I'm sorry, I couldn't generate a response.";
 }
 
 async function generateImage(prompt: string, modelIndex = 0): Promise<string> {
@@ -385,25 +444,29 @@ async function generateImage(prompt: string, modelIndex = 0): Promise<string> {
 
   const model = FREE_IMAGE_MODELS[modelIndex];
 
-  const response = await fetch(OPENROUTER_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-      "X-Title": "PGPGS Knyte Chatbot",
+  const response = await fetchWithTimeout(
+    OPENROUTER_URL,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+        "X-Title": "PGPGS Knyte Chatbot",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 1000,
+      }),
     },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      max_tokens: 1000,
-    }),
-  });
+    REQUEST_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");
@@ -439,6 +502,96 @@ function isImageRequest(message: string): boolean {
     lowerMessage.includes("photo of") ||
     lowerMessage.includes("illustration of")
   );
+}
+
+function isComplexQuestion(messages: ChatMessage[]): boolean {
+  const lastUserMessage =
+    [...messages].reverse().find((message) => message.role === "user")?.content ?? "";
+  const lower = lastUserMessage.toLowerCase();
+
+  return (
+    /\b(solve|calculate|compute|evaluate|simplify|factor|prove|derive|differentiate|integrate|show steps|step[- ]by[- ]step)\b/.test(lower) ||
+    /\b(homework|assignment|module|essay|research paper|reaction paper|argumentative essay|book report|term paper)\b/.test(lower) ||
+    /\b(math|algebra|geometry|trigonometry|calculus|physics|chemistry|biology|economics|statistics)\b/.test(lower) ||
+    /(\d+\s*[+\-*/^×÷]\s*\d)|(\b\d+[+\-*/×÷=^])|(\bx\s*=)/i.test(lastUserMessage)
+  );
+}
+
+function buildModelChain(messages: ChatMessage[]): string[] {
+  return isComplexQuestion(messages) ? [REASONING_MODEL, ...FREE_MODELS] : FREE_MODELS;
+}
+
+function toGeminiContents(messages: ChatMessage[]) {
+  return messages.map((message) => ({
+    role: message.role === "assistant" ? "model" : "user",
+    parts: [{ text: message.content }],
+  }));
+}
+
+async function callGemini(messages: ChatMessage[], modelIndex = 0): Promise<string> {
+  if (!GEMINI_API_KEY) {
+    throw new Error("Gemini API key is not configured.");
+  }
+
+  if (modelIndex >= GEMINI_MODELS.length) {
+    throw new Error("All Gemini models failed to respond.");
+  }
+
+  const model = GEMINI_MODELS[modelIndex];
+
+  const response = await fetchWithTimeout(
+    `${GEMINI_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: toGeminiContents(messages),
+        generationConfig: {
+          maxOutputTokens: 2048,
+          temperature: 0.7,
+        },
+      }),
+    },
+    REQUEST_TIMEOUT_MS,
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "Unknown error");
+    console.warn(`Gemini model ${model} failed: ${response.status} - ${errorText.slice(0, 200)}`);
+    return callGemini(messages, modelIndex + 1);
+  }
+
+  const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts
+    ?.map((part: { text?: string }) => part.text ?? "")
+    .join("")
+    .trim();
+
+  if (text) return text;
+  return "I'm sorry, I couldn't generate a response.";
+}
+
+async function callLLM(messages: ChatMessage[]): Promise<string> {
+  // 1) Try the free OpenRouter models first.
+  if (OPENROUTER_API_KEY) {
+    try {
+      return await callOpenRouter(messages, buildModelChain(messages));
+    } catch (error) {
+      console.warn("OpenRouter free models are unavailable:", error);
+    }
+  }
+
+  // 2) Fall back to the free Google Gemini tier when it is configured.
+  if (GEMINI_API_KEY) {
+    try {
+      return await callGemini(messages);
+    } catch (error) {
+      console.warn("Gemini fallback failed:", error);
+    }
+  }
+
+  throw new Error("No AI provider is configured or available.");
 }
 
 export async function POST(request: Request) {
@@ -487,7 +640,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ response });
     }
 
-    const response = await callOpenRouter(messages);
+    const response = await callLLM(messages);
     return NextResponse.json({ response });
   } catch (error) {
     console.error("Chat API error:", error);

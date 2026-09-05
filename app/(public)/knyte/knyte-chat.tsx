@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState, useCallback } from "react";
+import KnyteMarkdown from "@/components/knyte-markdown";
 
 interface Message {
   id: string;
@@ -94,7 +95,7 @@ const INITIAL_MESSAGE = {
   id: "welcome",
   role: "assistant" as const,
   content:
-    "Hello! I'm Knyte, your AI assistant for Pi Gamma Phi Gamma Sigma. I can help you with:\n\n• Learning about PGPGS history and traditions\n• Member verification and lookup\n• Information about officers and leadership\n• General questions about the brotherhood\n\nHow can I assist you today?",
+    "Hello! I'm Knyte, your AI assistant and study buddy for Pi Gamma Phi Gamma Sigma. I can help you with:\n\n• PGPGS history, members, officers, and news\n• Homework and assignments: math, science, essays, and more\n• Member verification and lookup\n• General questions about the brotherhood\n\nWhat do you need help with today?",
   timestamp: new Date(),
 };
 
@@ -516,10 +517,16 @@ export default function KnyteChat() {
                       const { text, imageUrl, imageAlt } = parseContent(message.content);
                       return (
                         <>
-                          {text && (
-                            <div className={`text-sm leading-relaxed whitespace-pre-wrap ${message.role === "user" ? "inline-block text-left bg-blue-500 text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-[80%]" : "text-gray-800"}`}>
-                              {text}
+                          {text && message.role === "assistant" ? (
+                            <div className="text-sm leading-relaxed text-gray-800">
+                              <KnyteMarkdown content={text} />
                             </div>
+                          ) : (
+                            text && (
+                              <div className="text-sm leading-relaxed whitespace-pre-wrap inline-block text-left bg-blue-500 text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-[80%]">
+                                {text}
+                              </div>
+                            )
                           )}
                           {imageUrl && (
                             <div className={message.role === "user" ? "flex justify-end" : ""}>
@@ -580,7 +587,7 @@ export default function KnyteChat() {
                 </svg>
               </button>
             </div>
-            <p className="text-center text-xs text-gray-400 mt-3">Knyte can help with PGPGS history, member verification, and general questions about the brotherhood.</p>
+            <p className="text-center text-xs text-gray-400 mt-3">Knyte can help with PGPGS history, member lookups, and your schoolwork — math, science, essays, and more.</p>
           </div>
         </div>
       </div>

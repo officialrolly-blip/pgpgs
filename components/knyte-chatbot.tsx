@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import KnyteMarkdown from "@/components/knyte-markdown";
 import { useEffect, useRef, useState } from "react";
 
 interface Message {
@@ -11,7 +12,7 @@ interface Message {
 }
 
 const INTRO_MESSAGE =
-  "Hey there! I'm Knyte, your friendly assistant for Pi Gamma Phi Gamma Sigma. I can help you learn about our brotherhood, answer questions about our history and values, or assist with verifying members. How can I help you today?";
+  "Hey there! I'm Knyte, your friendly assistant and study buddy. I can help with PGPGS questions, assignments and homework (math, science, essays, and more), member lookups, and just about anything you need. What can I help you with today?";
 
 export default function KnyteChatbot() {
     const [isOpen, setIsOpen] = useState(false);
@@ -137,7 +138,7 @@ export default function KnyteChatbot() {
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-white">Knyte</h3>
-            <p className="text-xs text-white/70">PGPGS Assistant</p>
+            <p className="text-xs text-white/70">AI Assistant & Study Buddy</p>
           </div>
           <button
             onClick={() => setIsOpen(false)}
@@ -170,7 +171,11 @@ export default function KnyteChatbot() {
                       : "rounded-bl-md bg-white text-[var(--foreground)] shadow-sm"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  {message.role === "assistant" ? (
+                    <KnyteMarkdown content={message.content} />
+                  ) : (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -231,7 +236,7 @@ export default function KnyteChatbot() {
         {!isOpen && !hasOpened && (
           <div className="absolute bottom-20 right-0 animate-bounce">
             <div className="relative whitespace-nowrap rounded-xl bg-[var(--green)] px-4 py-2 text-sm font-medium text-white shadow-lg">
-              👋 Hi! I'm Knyte, chat with me!
+              👋 Hi! I’m Knyte, chat with me!
               <div className="absolute -bottom-2 right-6 h-0 w-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-[var(--green)]" />
             </div>
           </div>
