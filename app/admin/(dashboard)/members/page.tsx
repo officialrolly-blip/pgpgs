@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
+import MemberDirectorySearch from "@/components/admin/member-directory-search";
 import { deleteMemberAction } from "@/lib/actions/member-actions";
 import { requireAdmin } from "@/lib/auth";
 import { MEMBER_STATUSES } from "@/lib/member-constants";
@@ -105,51 +106,13 @@ export default async function AdminMembersPage({
         </p>
       ) : null}
 
-      <form action="/admin/members" method="get" className="a-card mb-5 p-3 sm:p-4">
-        <div className="flex flex-col gap-3 lg:flex-row">
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Search members</span>
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-a-muted">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder="Search by name, email, or member ID…"
-              className="a-input pl-9"
-            />
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label>
-              <span className="sr-only">Filter by status</span>
-              <select
-                name="status"
-                defaultValue={status}
-                className="a-select sm:min-w-48"
-              >
-                <option value="">All statuses</option>
-                {MEMBER_STATUSES.map((value) => (
-                  <option key={value} value={value}>{value}</option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="submit"
-              className="a-btn a-btn-primary"
-            >
-              Search directory
-            </button>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-a-border-soft pt-3 text-xs text-a-muted">
-          <span>{q || status ? "Filtered directory" : "All chapter records"}</span>
-          <span className="font-mono">Showing {members.length} of {totalCount}</span>
-        </div>
-      </form>
+      <MemberDirectorySearch
+        initialQuery={q}
+        initialStatus={status}
+        statuses={MEMBER_STATUSES}
+        displayedCount={members.length}
+        totalCount={Number(totalCount)}
+      />
 
       <MembersTable members={members} buildPageHref={buildPageHref} currentPage={currentPage} totalPages={totalPages} />
     </>
