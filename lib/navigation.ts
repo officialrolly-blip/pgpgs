@@ -86,6 +86,7 @@ export const navigation: NavItem[] = [
     ],
   },
   { label: "Our Alumni", href: "/alumni" },
+  { label: "Knyte AI", href: "/knyte" },
 ];
 
 export const cta = {
