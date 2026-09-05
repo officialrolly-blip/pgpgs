@@ -227,14 +227,28 @@ export default function KnyteChatbot() {
 
       {/* Floating Button */}
       <div className="fixed bottom-4 right-4 z-50">
-        {/* Pulse ring animation */}
-        {!isOpen && (
-          <span className="absolute inset-0 animate-ping rounded-full bg-[var(--green)] opacity-30" />
+        {/* Attention-craving text bubble */}
+        {!isOpen && !hasOpened && (
+          <div className="absolute bottom-20 right-0 animate-bounce">
+            <div className="relative whitespace-nowrap rounded-xl bg-[var(--green)] px-4 py-2 text-sm font-medium text-white shadow-lg">
+              👋 Hi! I'm Knyte, chat with me!
+              <div className="absolute -bottom-2 right-6 h-0 w-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-[var(--green)]" />
+            </div>
+          </div>
         )}
+        
+        {/* Attention pulse when closed */}
+        {!isOpen && (
+          <>
+            <span className="absolute inset-0 animate-ping rounded-full bg-[var(--green)] opacity-40" />
+            <span className="absolute inset-0 animate-pulse rounded-full bg-[var(--green)] opacity-20" />
+          </>
+        )}
+        
         <button
           onClick={handleToggle}
-          className={`relative flex items-center justify-center rounded-full transition-all duration-300 hover:scale-110 ${
-            isOpen ? "rotate-90 scale-90" : ""
+          className={`relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[var(--green)] to-[var(--green-dark)] shadow-[0_8px_32px_rgba(27,92,56,0.4)] ring-4 ring-[var(--gold)]/40 transition-all duration-300 hover:scale-110 hover:shadow-[0_12px_40px_rgba(27,92,56,0.5)] hover:ring-[var(--gold)]/60 ${
+            isOpen ? "rotate-90 scale-90" : "animate-[wobble_2s_ease-in-out_infinite]"
           }`}
           aria-label={isOpen ? "Close Knyte chat" : "Open Knyte chat"}
         >
@@ -243,7 +257,7 @@ export default function KnyteChatbot() {
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           ) : (
-            <Image src="/icon_chatbot.png" alt="Knyte Chatbot" width={64} height={64} className="h-16 w-16 rounded-full object-cover" />
+            <Image src="/icon_chatbot.png" alt="Knyte Chatbot" width={64} height={64} className="h-14 w-14 rounded-full object-cover" />
           )}
         </button>
       </div>
