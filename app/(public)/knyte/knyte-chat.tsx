@@ -68,9 +68,11 @@ export default function KnyteChat() {
   };
 
   const deleteSession = (sessionId: string) => {
-    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    if (sessions.length <= 1) return;
+    const remainingSessions = sessions.filter((s) => s.id !== sessionId);
+    setSessions(remainingSessions);
     if (activeSessionId === sessionId) {
-      setActiveSessionId(sessions[0]?.id ?? "default");
+      setActiveSessionId(remainingSessions[0].id);
     }
   };
 
@@ -241,7 +243,7 @@ export default function KnyteChat() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto">
-            {activeSession.messages.map((message) => (
+            {activeSession?.messages?.map((message) => (
               <div key={message.id} className={`py-6 ${message.role === "user" ? "bg-[#2a2b32]" : "bg-[#1a1a1a]"}`}>
                 <div className="flex gap-4 px-4">
                   {message.role === "assistant" && (
