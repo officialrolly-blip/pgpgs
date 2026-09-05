@@ -233,7 +233,7 @@ export default function KnyteChatbot() {
         )}
         <button
           onClick={handleToggle}
-          className={`relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[var(--green)] to-[var(--green-dark)] shadow-[0_8px_32px_rgba(27,92,56,0.5)] ring-4 ring-[var(--gold)]/30 transition-all duration-300 hover:scale-110 hover:shadow-[0_12px_40px_rgba(27,92,56,0.6)] hover:ring-[var(--gold)]/50 ${
+          className={`relative flex items-center justify-center rounded-full transition-all duration-300 hover:scale-110 ${
             isOpen ? "rotate-90 scale-90" : ""
           }`}
           aria-label={isOpen ? "Close Knyte chat" : "Open Knyte chat"}
@@ -243,7 +243,7 @@ export default function KnyteChatbot() {
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           ) : (
-            <Image src="/icon_chatbot.png" alt="Knyte Chatbot" width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
+            <Image src="/icon_chatbot.png" alt="Knyte Chatbot" width={64} height={64} className="h-16 w-16 rounded-full object-cover" />
           )}
         </button>
       </div>
