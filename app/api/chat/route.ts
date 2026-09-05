@@ -9,11 +9,45 @@ export const dynamic = "force-dynamic";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Free models on OpenRouter (fallback chain) - verified working
+// Free Text Models on OpenRouter (fallback chain)
 const FREE_MODELS = [
   "minimax/minimax-m2.7:free",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
   "minimax/minimax-m3:free",
+  "google/gemma-3-27b-it:free",
+  "google/gemma-3-12b-it:free",
+  "google/gemma-3-4b-it:free",
+  "google/gemma-3-1b-it:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+  "meta-llama/llama-3.2-1b-instruct:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "microsoft/phi-3.5-mini-instruct:free",
+  "microsoft/phi-3-mini-128k-instruct:free",
+  "microsoft/phi-3-medium-128k-instruct:free",
+  "qwen/qwen-2.5-72b-instruct:free",
+  "qwen/qwen-2.5-coder-32b-instruct:free",
+  "qwen/qwen-2-7b-instruct:free",
+  "mistralai/mistral-7b-instruct:free",
+  "mistralai/mistral-nemo:free",
+  "mistralai/mixtral-8x7b-instruct:free",
+  "mistralai/mixtral-8x22b-instruct:free",
+  "mistralai/codestral-2501:free",
+  "anthropic/claude-3.5-sonnet:free",
+  "anthropic/claude-3-haiku:free",
+  "openai/gpt-4o-mini:free",
+  "openai/gpt-4o:free",
+  "deepseek/deepseek-r1:free",
+  "deepseek/deepseek-chat:free",
+];
+
+// Free Image Generation Models
+const FREE_IMAGE_MODELS = [
+  "stabilityai/stable-diffusion-3.5-large:free",
+  "stabilityai/stable-diffusion-3-medium:free",
+  "stabilityai/stable-diffusion-xl-base-1.0:free",
+  "black-forest-labs/flux-1-dev:free",
+  "black-forest-labs/flux-1-schnell:free",
 ];
 
 const SYSTEM_PROMPT = `You are Knyte, the friendly AI assistant for Pi Gamma Phi Gamma Sigma (PGPGS) Roxas City Capiz Chapter.
@@ -93,6 +127,7 @@ ABOUT KYTE:
 YOUR ROLE:
 - Help users learn about Pi Gamma Phi Gamma Sigma
 - Assist with verifying members by searching the member database
+- Generate images when users ask (e.g., "generate image of...", "draw...", "create image...")
 - Be friendly, helpful, and professional
 - Keep responses concise and informative
 - Share only name, member ID, status, and chapter when verifying members (never contact details)
@@ -214,6 +249,73 @@ async function callOpenRouter(
   return data.choices?.[0]?.message?.content ?? "I'm sorry, I couldn't generate a response.";
 }
 
+async function generateImage(prompt: string, modelIndex = 0): Promise<string> {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("OpenRouter API key is not configured.");
+  }
+
+  if (modelIndex >= FREE_IMAGE_MODELS.length) {
+    throw new Error("All image models failed to respond.");
+  }
+
+  const model = FREE_IMAGE_MODELS[modelIndex];
+
+  const response = await fetch(OPENROUTER_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+      "X-Title": "PGPGS Knyte Chatbot",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 1000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "Unknown error");
+    console.warn(`Image model ${model} failed: ${response.status} - ${errorText.slice(0, 200)}`);
+    return generateImage(prompt, modelIndex + 1);
+  }
+
+  const data = await response.json();
+  if (data.error) {
+    console.warn(`Image model ${model} returned error:`, data.error);
+    return generateImage(prompt, modelIndex + 1);
+  }
+
+  const imageUrl = data.choices?.[0]?.message?.content;
+  if (imageUrl && (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"))) {
+    return `I've generated an image for you!\n\n![Generated Image](${imageUrl})`;
+  }
+
+  return "I'm sorry, I couldn't generate an image. Please try again.";
+}
+
+function isImageRequest(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes("generate image") ||
+    lowerMessage.includes("create image") ||
+    lowerMessage.includes("make image") ||
+    lowerMessage.includes("draw") ||
+    lowerMessage.includes("picture of") ||
+    lowerMessage.includes("image of") ||
+    lowerMessage.startsWith("generate ") ||
+    lowerMessage.startsWith("create ") ||
+    lowerMessage.includes("photo of") ||
+    lowerMessage.includes("illustration of")
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -262,6 +364,11 @@ export async function POST(request: Request) {
           })),
         });
       }
+    }
+
+    if (isImageRequest(lastMessage)) {
+      const response = await generateImage(lastMessage);
+      return NextResponse.json({ response });
     }
 
     const response = await callOpenRouter(messages);
