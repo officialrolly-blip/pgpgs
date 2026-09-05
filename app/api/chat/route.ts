@@ -105,7 +105,8 @@ IMPORTANT:
 - Do not say "Hello" or "I'm Knyte" in your responses
 - Keep responses short and to the point (2-3 sentences max)
 - NEVER reveal what AI model you are powered by or mention any model names
-- If someone asks what AI model you use, give a vague answer like "I'm powered by AI technology" or deflect the question`;
+- If someone asks what AI model you use, give a vague answer like "I'm powered by AI technology" or deflect the question
+- Do NOT use asterisks (*) in your responses - no bold or italic formatting with asterisks`;
 
 type MessageRole = "user" | "assistant" | "system";
 
