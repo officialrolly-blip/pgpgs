@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 interface Message {
   id: string;
@@ -17,6 +17,79 @@ interface ChatSession {
   createdAt: Date;
 }
 
+interface VerifiedMember {
+  id: string;
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  chapter: string;
+  photoUrl: string | null;
+  hasPhoto: boolean;
+}
+
+// Component for displaying images with loading state
+function MessageImage({ src, alt }: { src: string; alt: string }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  return (
+    <div className="relative mt-2 rounded-lg overflow-hidden">
+      {/* Loading skeleton */}
+      {loading && !error && (
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse">
+          <div className="flex items-center justify-center h-full min-h-[200px]">
+            <div className="text-center">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[var(--green)] border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+              </div>
+              <p className="mt-2 text-sm text-gray-500">Generating image...</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Error state */}
+      {error && (
+        <div className="flex items-center justify-center h-full min-h-[200px] bg-gray-100 rounded-lg">
+          <div className="text-center text-gray-500">
+            <svg className="h-12 w-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className="text-sm">Failed to load image</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Actual image */}
+      <img
+        src={src}
+        alt={alt}
+        className={`w-full h-auto transition-opacity duration-500 ${loading || error ? "opacity-0" : "opacity-100"}`}
+        onLoad={() => setLoading(false)}
+        onError={() => {
+          setLoading(false);
+          setError(true);
+        }}
+      />
+    </div>
+  );
+}
+
+// Parse markdown images from content
+function parseContent(content: string): { text: string; imageUrl: string | null; imageAlt: string | null } {
+  const imageMatch = content.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+  if (imageMatch) {
+    return {
+      text: content.replace(imageMatch[0], "").trim(),
+      imageUrl: imageMatch[2],
+      imageAlt: imageMatch[1] || "Generated image",
+    };
+  }
+  return { text: content, imageUrl: null, imageAlt: null };
+}
+
+const STORAGE_KEY = "pgpgs_chat_member";
+
 const INITIAL_MESSAGE = {
   id: "welcome",
   role: "assistant" as const,
@@ -26,20 +99,46 @@ const INITIAL_MESSAGE = {
 };
 
 export default function KnyteChat() {
-  const [sessions, setSessions] = useState<ChatSession[]>([
-    {
-      id: "default",
-      title: "New Chat",
-      messages: [INITIAL_MESSAGE],
-      createdAt: new Date(),
-    },
-  ]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState("default");
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Member verification state
+  const [verifiedMember, setVerifiedMember] = useState<VerifiedMember | null>(null);
+  const [memberIdInput, setMemberIdInput] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const memberIdRef = useRef<HTMLInputElement>(null);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const member = JSON.parse(stored) as VerifiedMember;
+        setVerifiedMember(member);
+        initializeChat();
+      } catch {
+        sessionStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  // Initialize chat sessions after verification
+  const initializeChat = () => {
+    setSessions([
+      {
+        id: "default",
+        title: "New Chat",
+        messages: [INITIAL_MESSAGE],
+        createdAt: new Date(),
+      },
+    ]);
+  };
 
   const activeSession =
     sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
@@ -53,8 +152,67 @@ export default function KnyteChat() {
   }, [activeSession?.messages, isTyping]);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, [activeSessionId]);
+    if (verifiedMember) {
+      inputRef.current?.focus();
+    } else {
+      memberIdRef.current?.focus();
+    }
+  }, [activeSessionId, verifiedMember]);
+
+  const handleVerify = async () => {
+    const trimmed = memberIdInput.trim();
+    if (!trimmed) {
+      setVerifyError("Please enter your PGPGS Member ID.");
+      return;
+    }
+
+    setVerifyLoading(true);
+    setVerifyError("");
+
+    try {
+      const response = await fetch("/api/member-id/verify-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: trimmed }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setVerifyError(data.error || "Verification failed. Please try again.");
+        return;
+      }
+
+      // Store verified member
+      setVerifiedMember(data.member);
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data.member));
+      initializeChat();
+    } catch {
+      setVerifyError("Connection error. Please try again.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setVerifiedMember(null);
+    setMemberIdInput("");
+    setVerifyError("");
+    setSessions([]);
+    sessionStorage.removeItem(STORAGE_KEY);
+    setTimeout(() => memberIdRef.current?.focus(), 100);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (verifiedMember) {
+        handleSend();
+      } else {
+        handleVerify();
+      }
+    }
+  };
 
   const createNewChat = () => {
     const newSession: ChatSession = {
@@ -166,12 +324,87 @@ export default function KnyteChat() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  // Show verification form if not verified
+  if (!verifiedMember) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[var(--green)]/10 mb-4">
+                <Image
+                  src="/icon_chatbot.png"
+                  alt="Knyte"
+                  width={48}
+                  height={48}
+                  className="rounded-full"
+                />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                Welcome to Knyte AI
+              </h1>
+              <p className="text-gray-500 text-sm">
+                Pi Gamma Phi Gamma Sigma Assistant
+              </p>
+            </div>
+
+            {/* Verification Form */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter your PGPGS Member ID
+                </label>
+                <input
+                  ref={memberIdRef}
+                  type="text"
+                  value={memberIdInput}
+                  onChange={(e) => setMemberIdInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="e.g., PGPGS-XXXX-XXXX"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[var(--green)]/20 focus:border-[var(--green)] outline-none transition text-center font-mono uppercase"
+                  disabled={verifyLoading}
+                />
+              </div>
+
+              {verifyError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+                  {verifyError}
+                </div>
+              )}
+
+              <button
+                onClick={handleVerify}
+                disabled={verifyLoading || !memberIdInput.trim()}
+                className="w-full py-3 px-4 bg-[var(--green)] hover:bg-[var(--green-dark)] text-white font-semibold rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {verifyLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Verifying...
+                  </>
+                ) : (
+                  "Verify & Continue"
+                )}
+              </button>
+            </div>
+
+            {/* Info */}
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <p className="text-xs text-gray-400 text-center">
+                Only verified PGPGS members can access Knyte AI.
+                <br />
+                Your Member ID is found on your membership card.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-white">
@@ -255,14 +488,49 @@ export default function KnyteChat() {
                   )}
                   {message.role === "user" && (
                     <div className="shrink-0">
-                      <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">U</div>
+                      {verifiedMember?.hasPhoto && verifiedMember?.photoUrl ? (
+                        <Image 
+                          src={verifiedMember.photoUrl} 
+                          alt={`${verifiedMember.firstName} ${verifiedMember.lastName}`}
+                          width={32} 
+                          height={32} 
+                          className="h-8 w-8 rounded-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                          {verifiedMember?.firstName?.[0]?.toUpperCase() ?? "U"}
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className={`flex-1 min-w-0 ${message.role === "user" ? "text-right" : "text-left"}`}>
-                    <p className="text-xs font-semibold text-gray-500 mb-1">{message.role === "assistant" ? "Knyte" : "You"}</p>
-                    <div className={`text-sm leading-relaxed whitespace-pre-wrap ${message.role === "user" ? "inline-block text-left bg-blue-500 text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-[80%]" : "text-gray-800"}`}>
-                      {message.content}
-                    </div>
+                    <p className="text-xs font-semibold text-gray-500 mb-1">
+                      {message.role === "assistant" 
+                        ? "Knyte" 
+                        : verifiedMember 
+                          ? `${verifiedMember.firstName} ${verifiedMember.lastName}`
+                          : "You"}
+                    </p>
+                    {(() => {
+                      const { text, imageUrl, imageAlt } = parseContent(message.content);
+                      return (
+                        <>
+                          {text && (
+                            <div className={`text-sm leading-relaxed whitespace-pre-wrap ${message.role === "user" ? "inline-block text-left bg-blue-500 text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-[80%]" : "text-gray-800"}`}>
+                              {text}
+                            </div>
+                          )}
+                          {imageUrl && (
+                            <div className={message.role === "user" ? "flex justify-end" : ""}>
+                              <div className="max-w-sm">
+                                <MessageImage src={imageUrl} alt={imageAlt || "Generated image"} />
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
