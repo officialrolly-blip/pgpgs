@@ -260,7 +260,7 @@ export default function KnyteChat() {
                   )}
                   <div className={`flex-1 min-w-0 ${message.role === "user" ? "text-right" : "text-left"}`}>
                     <p className="text-xs font-semibold text-gray-500 mb-1">{message.role === "assistant" ? "Knyte" : "You"}</p>
-                    <div className={`text-gray-800 text-sm leading-relaxed whitespace-pre-wrap ${message.role === "user" ? "inline-block text-left rounded-2xl rounded-tr-sm px-4 py-2 max-w-[80%] border border-gray-200" : ""}`}>
+                    <div className={`text-gray-800 text-sm leading-relaxed whitespace-pre-wrap ${message.role === "user" ? "inline-block text-left bg-[var(--green)] text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-[80%]" : ""}`}>
                       {message.content}
                     </div>
                   </div>
