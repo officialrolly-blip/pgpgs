@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { asc, ilike, or } from "drizzle-orm";
+import { asc, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
-import { pgpmembers } from "@/db/schema";
+import { chapters, newsPosts, pgpmembers } from "@/db/schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -121,16 +121,15 @@ CAPIZ PROVINCIAL COUNCIL POSITIONS:
 ABOUT KYTE:
 - Knyte was developed by Rolly Paredes
 - If someone asks who created or developed you, tell them Rolly Paredes made you
-- If someone asks "Who is Rolly Paredes?" or "What can you tell me about Rolly Paredes?", search the member database for his information and share his membership details (name, member ID, status, chapter)
 - Rolly Paredes is a member of PGPGS and the developer of this chatbot
 
 YOUR ROLE:
 - Help users learn about Pi Gamma Phi Gamma Sigma
-- Assist with verifying members by searching the member database
+- Assist with verifying members using the approved member-directory information supplied by the application
 - Generate images when users ask (e.g., "generate image of...", "draw...", "create image...")
 - Be friendly, helpful, and professional
 - Keep responses concise and informative
-- Share only name, member ID, status, and chapter when verifying members (never contact details)
+- Share only name, member ID, status, chapter, and officer position when verifying members (never contact or personal details)
 - Always refer to the organization as "Pi Gamma Phi Gamma Sigma" or "PGPGS"
 - If you dont know something, be honest and suggest contacting the chapter directly
 
@@ -155,13 +154,74 @@ interface MemberSearchResult {
   memberId: string;
   firstName: string;
   lastName: string;
-    middleInitial: string | null;
+  middleInitial: string | null;
   status: string;
   memberChapter: string | null;
+  officerPosition: string | null;
+}
+
+type ClientMessage = {
+  role: Exclude<MessageRole, "system">;
+  content: string;
+};
+
+const MAX_CONVERSATION_MESSAGES = 20;
+const MAX_MESSAGE_LENGTH = 2_000;
+const MAX_MEMBER_RESULTS = 5;
+const MEMBER_ID_PATTERN = /\bPGPGS-[A-Z0-9-]+\b/i;
+
+function normalizeMessages(value: unknown): ClientMessage[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter(
+      (message): message is ClientMessage =>
+        typeof message === "object" &&
+        message !== null &&
+        (message.role === "user" || message.role === "assistant") &&
+        typeof message.content === "string",
+    )
+    .slice(-MAX_CONVERSATION_MESSAGES)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim().slice(0, MAX_MESSAGE_LENGTH),
+    }))
+    .filter((message) => message.content.length > 0);
+}
+
+function extractMemberSearchTerm(message: string): string | null {
+  const memberId = message.match(MEMBER_ID_PATTERN)?.[0];
+  if (memberId) return memberId;
+
+  const match = message.match(
+    /(?:who is|verify|find|search for|search|look up|lookup|check|member named|member details(?: for)?|information (?:on|about)|details (?:for|about))\s+(.+?)(?:[?.!]|$)/i,
+  );
+  if (!match) return null;
+
+  const candidate = match[1]
+    .replace(/\b(member|person|please|in (?:the )?database)\b/gi, "")
+    .trim();
+
+  return candidate.length >= 2 && candidate.length <= 80 ? candidate : null;
+}
+
+function asksForOfficers(message: string): boolean {
+  return /\b(current\s+)?(officers?|leadership|chapter president|vice president)\b/i.test(message);
+}
+
+function asksForChapters(message: string): boolean {
+  return /\b(chapters?|chapter list|where.*chapters?)\b/i.test(message);
+}
+
+function asksForNews(message: string): boolean {
+  return /\b(latest|recent|newest)\s+(news|updates?)\b|\b(news|updates?)\b.*\b(latest|recent|newest)\b/i.test(message);
 }
 
 async function searchMembers(query: string): Promise<MemberSearchResult[]> {
-  const pattern = `%${query}%`;
+  const normalizedQuery = query.replace(/[\\%_]/g, "").trim();
+  if (normalizedQuery.length < 2) return [];
+
+  const pattern = `%${normalizedQuery}%`;
   const members = await db
     .select({
       id: pgpmembers.id,
@@ -171,6 +231,7 @@ async function searchMembers(query: string): Promise<MemberSearchResult[]> {
       middleInitial: pgpmembers.middleInitial,
       status: pgpmembers.status,
       memberChapter: pgpmembers.memberChapter,
+      officerPosition: pgpmembers.officerPosition,
     })
     .from(pgpmembers)
     .where(
@@ -181,7 +242,7 @@ async function searchMembers(query: string): Promise<MemberSearchResult[]> {
       ),
     )
     .orderBy(asc(pgpmembers.lastName), asc(pgpmembers.firstName))
-    .limit(5);
+    .limit(MAX_MEMBER_RESULTS);
 
   return members;
 }
@@ -197,11 +258,75 @@ function formatMemberResults(members: MemberSearchResult[]): string {
         ? `${m.firstName} ${m.middleInitial}. ${m.lastName}`
         : `${m.firstName} ${m.lastName}`;
       const chapter = m.memberChapter ? ` | Chapter: ${m.memberChapter}` : "";
-      return `- ${fullName} (ID: ${m.memberId}) - Status: ${m.status}${chapter}`;
+      const position = m.officerPosition ? ` | Position: ${m.officerPosition}` : "";
+      return `- ${fullName} (ID: ${m.memberId}) - Status: ${m.status}${chapter}${position}`;
     })
     .join("\n");
 
-      return `I found the following member(s) in our database:\n\n${memberList}`;
+  return `I found the following member(s) in our database:\n\n${memberList}`;
+}
+
+async function getCurrentOfficers(): Promise<string> {
+  const officers = await db
+    .select({
+      firstName: pgpmembers.firstName,
+      middleInitial: pgpmembers.middleInitial,
+      lastName: pgpmembers.lastName,
+      position: pgpmembers.officerPosition,
+    })
+    .from(pgpmembers)
+    .where(eq(pgpmembers.status, "PGP-GS Roxas City Chapter Officer"))
+    .orderBy(asc(pgpmembers.createdAt))
+    .limit(20);
+
+  if (officers.length === 0) {
+    return "I couldn't find current chapter officers in the database.";
+  }
+
+  const list = officers
+    .map((officer) => {
+      const fullName = [officer.firstName, officer.middleInitial, officer.lastName]
+        .filter(Boolean)
+        .join(" ");
+      return `- ${officer.position || "Officer"}: ${fullName}`;
+    })
+    .join("\n");
+
+  return `Current Roxas City Chapter officers:\n\n${list}`;
+}
+
+async function getPublishedChapters(): Promise<string> {
+  const rows = await db
+    .select({ name: chapters.chapterName, address: chapters.chapterAddress })
+    .from(chapters)
+    .where(eq(chapters.status, "published"))
+    .orderBy(asc(chapters.chapterName))
+    .limit(20);
+
+  if (rows.length === 0) {
+    return "I couldn't find any published chapters in the database yet.";
+  }
+
+  return `Published PGPGS chapters:\n\n${rows
+    .map((chapter) => `- ${chapter.name}${chapter.address ? ` (${chapter.address})` : ""}`)
+    .join("\n")}`;
+}
+
+async function getRecentNews(): Promise<string> {
+  const rows = await db
+    .select({ title: newsPosts.title, summary: newsPosts.summary, publishedAt: newsPosts.publishedAt })
+    .from(newsPosts)
+    .where(eq(newsPosts.published, true))
+    .orderBy(desc(newsPosts.publishedAt))
+    .limit(3);
+
+  if (rows.length === 0) {
+    return "I couldn't find any published news updates yet.";
+  }
+
+  return `Recent PGPGS news:\n\n${rows
+    .map((post) => `- ${post.title}: ${post.summary}`)
+    .join("\n")}`;
 }
 
 async function callOpenRouter(
@@ -319,55 +444,46 @@ function isImageRequest(message: string): boolean {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const messages: ChatMessage[] = body.messages ?? [];
+    const messages = normalizeMessages(body.messages);
 
     if (!messages.length) {
       return NextResponse.json({ error: "No messages provided." }, { status: 400 });
     }
 
-    const lastMessage = messages[messages.length - 1]?.content?.toLowerCase() ?? "";
-    const isSearchQuery =
-      lastMessage.includes("search") ||
-      lastMessage.includes("find") ||
-      lastMessage.includes("verify") ||
-      lastMessage.includes("look up") ||
-      lastMessage.includes("check member") ||
-      lastMessage.includes("is a member") ||
-      lastMessage.includes("member named") ||
-      lastMessage.includes("rolly") ||
-      lastMessage.includes("paredes");
+    const lastMessage = messages[messages.length - 1]?.content ?? "";
+    const memberSearchTerm = extractMemberSearchTerm(lastMessage);
 
-    if (isSearchQuery) {
-      let searchTerm = lastMessage
-        .replace(/search|find|verify|look up|check member|is a member|member named|for|the|a|an|please|can you|help me/g, "")
-        .trim();
+    if (memberSearchTerm) {
+      const members = await searchMembers(memberSearchTerm);
+      return NextResponse.json({
+        response: formatMemberResults(members),
+        members: members.map((member) => ({
+          id: member.id,
+          memberId: member.memberId,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          middleInitial: member.middleInitial,
+          status: member.status,
+          chapter: member.memberChapter,
+          officerPosition: member.officerPosition,
+        })),
+      });
+    }
 
-      // Special handling for Rolly Paredes queries
-      if (lastMessage.includes("rolly") || lastMessage.includes("paredes")) {
-        searchTerm = "rolly paredes";
-      }
+    if (asksForOfficers(lastMessage)) {
+      return NextResponse.json({ response: await getCurrentOfficers() });
+    }
 
-      if (searchTerm.length >= 2) {
-        const members = await searchMembers(searchTerm);
-        const resultText = formatMemberResults(members);
+    if (asksForChapters(lastMessage)) {
+      return NextResponse.json({ response: await getPublishedChapters() });
+    }
 
-        return NextResponse.json({
-          response: resultText,
-          members: members.map((m) => ({
-            id: m.id,
-            memberId: m.memberId,
-            firstName: m.firstName,
-            lastName: m.lastName,
-            middleInitial: m.middleInitial,
-            status: m.status,
-            chapter: m.memberChapter,
-          })),
-        });
-      }
+    if (asksForNews(lastMessage)) {
+      return NextResponse.json({ response: await getRecentNews() });
     }
 
     if (isImageRequest(lastMessage)) {
-      const response = await generateImage(lastMessage);
+      const response = await generateImage(lastMessage.toLowerCase());
       return NextResponse.json({ response });
     }
 
