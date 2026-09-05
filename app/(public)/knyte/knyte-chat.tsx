@@ -178,7 +178,7 @@ export default function KnyteChat() {
       <div
         className={`${
           sidebarOpen ? "w-72" : "w-0"
-        } transition-all duration-300 overflow-hidden bg-gray-50 flex flex-col shrink-0 border-r border-gray-200`}
+        } transition-all duration-300 overflow-hidden bg-white-50 flex flex-col shrink-0 border-r border-gray-200`}
       >
         <div className="p-3">
           <button
@@ -194,7 +194,7 @@ export default function KnyteChat() {
         <div className="flex-1 overflow-y-auto px-3 pb-3">
           <p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase">Chat History</p>
           {sessions.map((session) => (
-            <div key={session.id} className={`group flex items-center rounded-lg mb-1 ${session.id === activeSessionId ? "bg-gray-200" : "hover:bg-gray-100"}`}>
+            <div key={session.id} className={`group flex items-center rounded-lg mb-1 ${session.id === activeSessionId ? "bg-white-200" : "hover:bg-gray-100"}`}>
               <button onClick={() => setActiveSessionId(session.id)} className="flex-1 flex items-center gap-3 px-3 py-3 text-sm text-gray-700 truncate text-left">
                 <svg className="h-4 w-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -244,7 +244,7 @@ export default function KnyteChat() {
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto">
             {activeSession?.messages?.map((message) => (
-              <div key={message.id} className={`py-6 ${message.role === "user" ? "bg-gray-50" : "bg-white"}`}>
+              <div key={message.id} className={`py-6 ${message.role === "user" ? "bg-white" : "bg-white"}`}>
                 <div className={`flex gap-4 px-4 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
                   {message.role === "assistant" && (
                     <div className="shrink-0">
