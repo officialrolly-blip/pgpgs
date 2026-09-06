@@ -35,17 +35,27 @@ export default function NeophyteStatusControls({
   const certified = Boolean(certificationIssuedAt);
 
   return (
-    <div className="border-t border-a-border-soft px-5 py-5 sm:px-6">
-      <div className="grid gap-2 sm:grid-cols-4">
+    <div className="border-t border-a-border-soft bg-[var(--a-bg)] px-5 py-5 sm:px-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-a-muted">Formation progress &amp; actions</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {NEOPHYTE_STATUSES.map((status, index) => {
           const currentIndex = NEOPHYTE_STATUSES.indexOf(activeStatus as (typeof NEOPHYTE_STATUSES)[number]);
           const complete = index < currentIndex;
           const current = status === activeStatus;
           return (
-            <div key={status} className={`relative rounded-lg border px-3 py-3 ${current ? "border-a-brand bg-a-brand-soft" : "border-a-border-soft bg-[var(--a-bg)]"}`}>
-              <span className={`text-[10px] font-bold ${complete || current ? "text-a-brand" : "text-a-muted/60"}`}>{String(index + 1).padStart(2, "0")}</span>
-              <p className={`mt-1 text-xs font-semibold ${current ? "text-a-brand-dark" : "text-a-secondary"}`}>{NEOPHYTE_STATUS_LABELS[status]}</p>
-              <p className="mt-0.5 text-[10px] text-a-muted">{complete ? "Completed" : current ? "Current step" : "Next step"}</p>
+            <div key={status} className={`relative rounded-xl border px-3 py-3 ${current ? "border-a-gold bg-white shadow-[var(--a-shadow-sm)]" : complete ? "border-a-brand/25 bg-a-brand-soft/60" : "border-a-border bg-white"}`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-[10px] font-bold ${complete || current ? "text-a-brand" : "text-a-muted/60"}`}>{String(index + 1).padStart(2, "0")}</span>
+                {complete ? (
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-a-brand" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m5 12.5 4.5 4.5L19 7.5" />
+                  </svg>
+                ) : current ? (
+                  <span className="h-2 w-2 rounded-full bg-a-gold" aria-hidden="true" />
+                ) : null}
+              </div>
+              <p className={`mt-1 text-xs font-semibold ${current ? "text-a-brand-dark" : complete ? "text-a-brand" : "text-a-secondary"}`}>{NEOPHYTE_STATUS_LABELS[status]}</p>
+              <p className="mt-0.5 text-[10px] text-a-muted">{complete ? "Completed" : current ? "Current stage" : "Upcoming"}</p>
             </div>
           );
         })}

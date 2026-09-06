@@ -3,7 +3,6 @@ import Link from "next/link";
 import { desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers, registrations } from "@/db/schema";
-import PageHeading from "@/components/admin/page-heading";
 import { requireAdmin } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -14,13 +13,13 @@ type Metric = {
   detail: string;
   href: string;
   tone: "green" | "gold" | "amber" | "slate";
-  icon: "users" | "badge" | "grad" | "inbox" | "pin";
+  icon: "users" | "badge" | "grad" | "inbox" | "pin" | "mail";
 };
 
 export default async function AdminOverviewPage() {
   const admin = await requireAdmin();
 
-  const [memberCounts, applicationCounts, chapterCounts, pendingApplications, recentMembers] = await Promise.all([
+  const [memberCounts, applicationCounts, chapterCounts, unreadMessages, pendingApplications, recentMembers] = await Promise.all([
     db.execute<{ total: number; officers: number; alumni: number }>(
       `select
          count(*)::int as total,
@@ -37,6 +36,9 @@ export default async function AdminOverviewPage() {
          count(*) filter (where status <> 'published')::int as pending,
          count(*) filter (where status = 'published')::int as published
        from chapters`,
+    ),
+    db.execute<{ unread: number }>(
+      `select count(*)::int as unread from contact_messages where status = 'unread'`,
     ),
     db
       .select({
@@ -72,40 +74,77 @@ export default async function AdminOverviewPage() {
   const pending = Number(applicationCounts.rows[0]?.pending ?? 0);
   const pendingChapters = Number(chapterCounts.rows[0]?.pending ?? 0);
   const publishedChapters = Number(chapterCounts.rows[0]?.published ?? 0);
+  const unread = Number(unreadMessages.rows[0]?.unread ?? 0);
   const metrics: Metric[] = [
     { label: "Members", value: Number(memberStats?.total ?? 0), detail: "Chapter directory", href: "/admin/members", tone: "green", icon: "users" },
     { label: "Officers", value: Number(memberStats?.officers ?? 0), detail: "Active appointments", href: "/admin/officials", tone: "gold", icon: "badge" },
     { label: "Alumni", value: Number(memberStats?.alumni ?? 0), detail: "Former members", href: "/admin/members?status=Alumni", tone: "slate", icon: "grad" },
     { label: "To review", value: pending, detail: pending === 1 ? "Application pending" : "Applications pending", href: "/admin/registrations", tone: "amber", icon: "inbox" },
+    { label: "Inbox", value: unread, detail: unread === 1 ? "Unread message" : "Unread messages", href: "/admin/inbox", tone: unread > 0 ? "amber" : "slate", icon: "mail" },
     { label: "Chapters", value: pendingChapters, detail: `${pendingChapters === 1 ? "Chapter" : "Chapters"} awaiting review · ${publishedChapters} published`, href: "/admin/chapters", tone: "gold", icon: "pin" },
   ];
 
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const todayLabel = now.toLocaleDateString("en-PH", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const pendingItems = [
+    pending > 0 ? `${pending} ${pending === 1 ? "application" : "applications"} to review` : null,
+    unread > 0 ? `${unread} unread ${unread === 1 ? "message" : "messages"}` : null,
+    pendingChapters > 0 ? `${pendingChapters} ${pendingChapters === 1 ? "chapter" : "chapters"} awaiting review` : null,
+  ].filter(Boolean);
+  const summaryLine =
+    pendingItems.length === 0
+      ? "Everything is up to date — no pending applications, unread messages, or chapter reviews."
+      : `${pendingItems.join(" · ")}.`;
+
   return (
     <>
-      <PageHeading
-        title="Overview"
-        description={`Signed in as ${admin.name}. Here is the current chapter activity.`}
-        actions={
-          <Link href="/admin/members/new" className="a-btn a-btn-primary">
+      <section
+        className="relative mb-6 overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#0f3d26_0%,#1b5c38_58%,#14532d_100%)] p-6 text-white shadow-[var(--a-shadow-md)] sm:p-7"
+        aria-label="Overview summary"
+      >
+        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[rgba(201,162,39,0.16)] blur-3xl" aria-hidden="true" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-44 w-44 rounded-full bg-white/5 blur-3xl" aria-hidden="true" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold-light)]">
+              {todayLabel}
+            </p>
+            <h1 className="mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl">
+              {greeting}, {admin.name.split(" ")[0]}.
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-white/70">{summaryLine}</p>
+          </div>
+          <Link href="/admin/members/new" className="a-btn a-btn-gold shrink-0 self-start sm:self-center">
             Add member
           </Link>
-        }
-      />
+        </div>
+      </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Chapter totals">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" aria-label="Chapter totals">
         {metrics.map((metric) => (
-          <Link key={metric.label} href={metric.href} className="a-card a-card-hover group p-5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-a-muted">{metric.label}</p>
-              <span className={`flex h-10 w-10 items-center justify-center rounded-full ${toneChips[metric.tone]}`}>
+          <Link
+            key={metric.label}
+            href={metric.href}
+            className={`a-card a-card-hover group p-5 ${metric.tone === "amber" && metric.value > 0 ? "border-a-warning/40 ring-1 ring-a-warning/20" : ""}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span className={`a-icon-tile ${toneChips[metric.tone]}`}>
                 <MetricIcon name={metric.icon} />
               </span>
+              <span className="text-lg text-a-muted opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" aria-hidden="true">
+                →
+              </span>
             </div>
-            <p className="mt-3 text-3xl font-bold tracking-tight text-a-text">{metric.value}</p>
-            <p className="mt-1.5 text-xs leading-4 text-a-muted">
-              {metric.detail}
-              <span className="ml-1 inline-block opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100">→</span>
-            </p>
+            <p className="mt-4 text-3xl font-bold tracking-tight text-a-text">{metric.value}</p>
+            <p className="mt-1 text-sm font-semibold text-a-text">{metric.label}</p>
+            <p className="mt-0.5 text-xs leading-4 text-a-muted">{metric.detail}</p>
           </Link>
         ))}
       </section>
@@ -129,7 +168,15 @@ export default async function AdminOverviewPage() {
                 <tbody className="[&>tr:last-child>td]:border-b-0">
                   {pendingApplications.map((application) => (
                     <tr key={application.id} className="a-tr">
-                      <td className="a-td"><p className="font-semibold text-a-text">{personName(application)}</p><p className="mt-0.5 text-xs text-a-muted">{application.email}</p></td>
+                      <td className="a-td">
+                        <div className="flex items-center gap-3">
+                          <InitialsAvatar name={personName(application)} />
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-a-text">{personName(application)}</p>
+                            <p className="truncate text-xs text-a-muted">{application.email}</p>
+                          </div>
+                        </div>
+                      </td>
                       <td className="a-td">{application.contactNumber}</td>
                       <td className="a-td text-a-muted"><time dateTime={application.createdAt.toISOString()}>{formatDate(application.createdAt)}</time></td>
                       <td className="a-td text-right"><Link href="/admin/registrations" className="a-btn a-btn-secondary a-btn-sm">Review</Link></td>
@@ -145,10 +192,10 @@ export default async function AdminOverviewPage() {
           <h2 id="workspace-heading" className="a-card-title">Common tasks</h2>
           <p className="mt-1.5 text-sm leading-6 text-a-muted">Keep chapter records current from one place.</p>
           <div className="mt-4 divide-y divide-a-border-soft border-y border-a-border-soft">
-            <QuickLink href="/admin/members/new" title="Add a member" description="Create a chapter directory record." />
-            <QuickLink href="/admin/officials" title="Manage officers" description="Assign or update chapter positions." />
-            <QuickLink href="/admin/chapters" title="Review chapters" description="Publish PGPGS Across Capiz registrations." />
-            <QuickLink href="/admin/settings" title="Account settings" description="Manage administrator access." />
+            <QuickLink href="/admin/members/new" icon="plus" title="Add a member" description="Create a chapter directory record." />
+            <QuickLink href="/admin/officials" icon="badge" title="Manage officers" description="Assign or update chapter positions." />
+            <QuickLink href="/admin/chapters" icon="pin" title="Review chapters" description="Publish PGPGS Across Capiz registrations." />
+            <QuickLink href="/admin/settings" icon="gear" title="Account settings" description="Manage administrator access." />
           </div>
           <Link href="/admin/registrations" className="a-btn a-btn-gold mt-5 w-full">
             Review {pending} pending {pending === 1 ? "application" : "applications"}
@@ -163,8 +210,12 @@ export default async function AdminOverviewPage() {
         ) : (
           <div className="grid divide-y divide-a-border-soft md:grid-cols-2 md:divide-x">
             {recentMembers.map((member) => (
-              <Link key={member.id} href={`/admin/members/${member.id}`} className="flex items-center justify-between gap-4 px-5 py-4 transition hover:bg-[var(--a-bg)]">
-                <div className="min-w-0"><p className="truncate font-semibold text-a-text">{personName(member)}</p><p className="mt-0.5 font-mono text-xs text-a-muted">{member.memberId} · added {formatDate(member.createdAt)}</p></div>
+              <Link key={member.id} href={`/admin/members/${member.id}`} className="flex items-center gap-3 px-5 py-4 transition hover:bg-[var(--a-bg)]">
+                <InitialsAvatar name={personName(member)} tone={member.status === "Alumni" ? "slate" : "brand"} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-a-text">{personName(member)}</p>
+                  <p className="mt-0.5 truncate font-mono text-xs text-a-muted">{member.memberId} · added {formatDate(member.createdAt)}</p>
+                </div>
                 <span className="a-badge a-badge-green shrink-0">{member.status}</span>
               </Link>
             ))}
@@ -186,10 +237,34 @@ function PanelHeader({ title, href, action }: { title: string; href: string; act
   );
 }
 
+function InitialsAvatar({ name, tone = "brand" }: { name: string; tone?: "brand" | "slate" | "gold" }) {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join("");
+  const tones: Record<string, string> = {
+    brand: "bg-a-brand-soft text-a-brand",
+    slate: "bg-gray-100 text-a-secondary",
+    gold: "bg-a-gold-soft text-[#8a6d10]",
+  };
+  return (
+    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${tones[tone]}`} aria-hidden="true">
+      {initials || "?"}
+    </span>
+  );
+}
+
 function EmptyState({ message, href, action }: { message: string; href: string; action: string }) {
   return (
     <div className="px-5 py-12 text-center">
-      <p className="text-sm text-a-muted">{message}</p>
+      <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-a-brand-soft text-a-brand" aria-hidden="true">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 7H4l1 13h14l1-13ZM4 7l2-3h12l2 3M9 11a3 3 0 0 0 6 0" />
+        </svg>
+      </span>
+      <p className="mt-3 text-sm text-a-muted">{message}</p>
       <Link href={href} className="mt-3 inline-block text-sm font-medium text-a-brand transition hover:text-a-brand-dark">
         {action} →
       </Link>
@@ -197,14 +272,26 @@ function EmptyState({ message, href, action }: { message: string; href: string; 
   );
 }
 
-function QuickLink({ href, title, description }: { href: string; title: string; description: string }) {
+const taskIcons = {
+  plus: "M12 5v14M5 12h14",
+  badge: "M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6zM9 12l2 2 4-4",
+  pin: "M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0ZM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5",
+  gear: "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.5 1.5-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.1v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.5-1.5.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H7v-2.1h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V5h2.1v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2v2.1h-.2a1.7 1.7 0 0 0-1.5 1Z",
+};
+
+function QuickLink({ href, icon, title, description }: { href: string; icon: keyof typeof taskIcons; title: string; description: string }) {
   return (
-    <Link href={href} className="group -mx-2 flex items-center justify-between gap-4 rounded-lg px-2 py-3.5 transition hover:bg-[var(--a-bg)]">
-      <span>
+    <Link href={href} className="group -mx-2 flex items-center gap-3 rounded-lg px-2 py-3.5 transition hover:bg-[var(--a-bg)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-a-brand-soft text-a-brand transition group-hover:bg-a-brand group-hover:text-white">
+        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d={taskIcons[icon]} />
+        </svg>
+      </span>
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-a-text">{title}</span>
         <span className="mt-0.5 block text-xs text-a-muted">{description}</span>
       </span>
-      <span className="text-a-muted transition group-hover:translate-x-0.5 group-hover:text-a-brand">→</span>
+      <span className="text-a-muted transition group-hover:translate-x-0.5 group-hover:text-a-brand" aria-hidden="true">→</span>
     </Link>
   );
 }
@@ -222,6 +309,7 @@ function MetricIcon({ name }: { name: Metric["icon"] }) {
     badge: "M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6zM9 12l2 2 4-4",
     grad: "m12 3 10 5-10 5L2 8ZM6 10.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-5.5",
     inbox: "M4 4h16v13H4zM4 13h4l2 3h4l2-3h4M8 8h8",
+    mail: "M3 5h18v14H3zM3 7l9 6 9-6",
     pin: "M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0ZM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5",
   };
   return (

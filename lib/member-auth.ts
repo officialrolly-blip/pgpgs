@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { and, eq, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { memberCredentials, memberSessions } from "@/db/schema";
+import { bestEffortDbCleanup } from "@/lib/db-cleanup";
 
 const scrypt = promisify(scryptCallback);
 
@@ -123,7 +124,14 @@ export async function getMemberSessionUser(): Promise<MemberSessionUser | null> 
 
   if (!row) return null;
   if (row.expiresAt <= new Date()) {
-    await destroyMemberSession();
+    // Cookies may only be modified inside a Server Action or Route Handler,
+    // and this helper could run during page render as well. Invalidate only
+    // the database session here; the stale browser cookie no longer matches
+    // any session and is ignored until destroyMemberSession() (logout)
+    // removes it or it expires naturally.
+    await bestEffortDbCleanup(() =>
+      db.delete(memberSessions).where(eq(memberSessions.tokenHash, hashToken(token))),
+    );
     return null;
   }
 
@@ -138,7 +146,9 @@ export async function destroyMemberSession(): Promise<void> {
   const cookieStore = await cookies();
   const token = cookieStore.get(MEMBER_SESSION_COOKIE_NAME)?.value;
   if (token) {
-    await db.delete(memberSessions).where(eq(memberSessions.tokenHash, hashToken(token)));
+    await bestEffortDbCleanup(() =>
+      db.delete(memberSessions).where(eq(memberSessions.tokenHash, hashToken(token))),
+    );
   }
   cookieStore.delete(MEMBER_SESSION_COOKIE_NAME);
 }

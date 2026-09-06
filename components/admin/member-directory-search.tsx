@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
+import { FormEvent, useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -21,44 +21,49 @@ export default function MemberDirectorySearch({
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [status, setStatus] = useState(initialStatus);
+  const [submitted, setSubmitted] = useState({ query: initialQuery.trim(), status: initialStatus });
   const [isPending, startTransition] = useTransition();
-  const submittedFilters = useRef(`${initialQuery}\u0000${initialStatus}`);
 
-  const filterKey = `${query.trim()}\u0000${status}`;
-  const isSearching = isPending || filterKey !== submittedFilters.current;
+  const isSearching =
+    isPending || query.trim() !== submitted.query || status !== submitted.status;
 
-  useEffect(() => {
+  // Re-sync the local fields when the server-rendered filters change
+  // (e.g. the status quick-filter chips), using the render-time reset pattern.
+  const initialKey = `${initialQuery}\u0000${initialStatus}`;
+  const [syncedKey, setSyncedKey] = useState(initialKey);
+  if (syncedKey !== initialKey) {
+    setSyncedKey(initialKey);
     setQuery(initialQuery);
     setStatus(initialStatus);
-    submittedFilters.current = `${initialQuery}\u0000${initialStatus}`;
-  }, [initialQuery, initialStatus]);
+    setSubmitted({ query: initialQuery.trim(), status: initialStatus });
+  }
+
+  const updateDirectory = useCallback(
+    (nextQuery: string, nextStatus: string) => {
+      const normalizedQuery = nextQuery.trim();
+      setSubmitted({ query: normalizedQuery, status: nextStatus });
+      const params = new URLSearchParams();
+      if (normalizedQuery) params.set("q", normalizedQuery);
+      if (nextStatus) params.set("status", nextStatus);
+      const queryString = params.toString();
+      const href = queryString ? `/admin/members?${queryString}` : "/admin/members";
+
+      startTransition(() => {
+        router.replace(href, { scroll: false });
+      });
+    },
+    [router],
+  );
 
   useEffect(() => {
-    if (filterKey === submittedFilters.current) return;
+    if (query.trim() === submitted.query && status === submitted.status) return;
 
     const timer = window.setTimeout(() => {
       updateDirectory(query, status);
     }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [filterKey, query, status]);
-
-  function updateDirectory(nextQuery: string, nextStatus: string) {
-    const normalizedQuery = nextQuery.trim();
-    const nextKey = `${normalizedQuery}\u0000${nextStatus}`;
-    if (nextKey === submittedFilters.current) return;
-
-    submittedFilters.current = nextKey;
-    const params = new URLSearchParams();
-    if (normalizedQuery) params.set("q", normalizedQuery);
-    if (nextStatus) params.set("status", nextStatus);
-    const queryString = params.toString();
-    const href = queryString ? `/admin/members?${queryString}` : "/admin/members";
-
-    startTransition(() => {
-      router.replace(href, { scroll: false });
-    });
-  }
+  }, [query, status, submitted, updateDirectory]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,7 +117,22 @@ export default function MemberDirectorySearch({
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-a-border-soft pt-3 text-xs text-a-muted">
-        <span>{isSearching ? "Searching directory…" : query || status ? "Filtered directory" : "All chapter records"}</span>
+        <span className="flex items-center gap-3">
+          <span>{isSearching ? "Searching directory…" : query || status ? "Filtered directory" : "All chapter records"}</span>
+          {query || status ? (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setStatus("");
+                updateDirectory("", "");
+              }}
+              className="font-semibold text-a-brand transition hover:text-a-brand-dark"
+            >
+              ✕ Reset filters
+            </button>
+          ) : null}
+        </span>
         <span className="font-mono">{isSearching ? "Updating results…" : `Showing ${displayedCount} of ${totalCount}`}</span>
       </div>
     </form>

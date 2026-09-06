@@ -4,6 +4,7 @@ import { and, eq, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers, registrationSessions, registrations } from "@/db/schema";
 import { verifyPassword } from "@/lib/auth";
+import { bestEffortDbCleanup } from "@/lib/db-cleanup";
 
 export const REGISTRATION_SESSION_COOKIE = "pgpgs_registration_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
@@ -86,7 +87,14 @@ export async function getRegistrationStatus(): Promise<RegistrationStatus | null
     .limit(1);
 
   if (!registration || registration.sessionExpiresAt <= new Date()) {
-    await clearRegistrationSession();
+    // Cookies may only be modified inside a Server Action or Route Handler,
+    // and this helper also runs during page render (/join/status). Invalidate
+    // only the database session here; the stale browser cookie no longer
+    // matches any session and is ignored until clearRegistrationSession()
+    // (logout) removes it or it expires naturally.
+    await bestEffortDbCleanup(() =>
+      db.delete(registrationSessions).where(eq(registrationSessions.tokenHash, hashToken(token))),
+    );
     return null;
   }
   return {
@@ -98,6 +106,10 @@ export async function getRegistrationStatus(): Promise<RegistrationStatus | null
 export async function clearRegistrationSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(REGISTRATION_SESSION_COOKIE)?.value;
-  if (token) await db.delete(registrationSessions).where(eq(registrationSessions.tokenHash, hashToken(token)));
+  if (token) {
+    await bestEffortDbCleanup(() =>
+      db.delete(registrationSessions).where(eq(registrationSessions.tokenHash, hashToken(token))),
+    );
+  }
   cookieStore.delete(REGISTRATION_SESSION_COOKIE);
 }

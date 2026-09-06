@@ -22,7 +22,8 @@ export default function LoginForm({ next }: { next: string }) {
           type="email"
           autoComplete="username"
           required
-          className="a-input"
+          disabled={isPending}
+          className="a-input disabled:cursor-not-allowed disabled:opacity-60"
           placeholder="admin@example.com"
         />
       </div>
@@ -37,7 +38,8 @@ export default function LoginForm({ next }: { next: string }) {
           type="password"
           autoComplete="current-password"
           required
-          className="a-input"
+          disabled={isPending}
+          className="a-input disabled:cursor-not-allowed disabled:opacity-60"
           placeholder="••••••••••••"
         />
       </div>
@@ -56,7 +58,17 @@ export default function LoginForm({ next }: { next: string }) {
         disabled={isPending}
         className="a-btn a-btn-primary w-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-a-brand"
       >
-        {isPending ? "Signing in…" : "Sign in"}
+        {isPending ? (
+          <>
+            <span
+              className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white"
+              aria-hidden="true"
+            />
+            Signing in…
+          </>
+        ) : (
+          "Sign in"
+        )}
       </button>
     </form>
   );

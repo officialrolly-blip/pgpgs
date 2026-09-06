@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import { and, eq, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { adminSessions, adminUsers } from "@/db/schema";
+import { bestEffortDbCleanup } from "@/lib/db-cleanup";
 
 const scrypt = promisify(scryptCallback);
 
@@ -210,7 +211,14 @@ export async function getSessionUser(): Promise<AdminUser | null> {
 
   if (!row) return null;
   if (row.expiresAt <= new Date() || !row.isActive) {
-    await destroySession();
+    // Cookies may only be modified inside a Server Action or Route Handler,
+    // and this helper runs during page render (requireAdmin on every admin
+    // page). Invalidate only the database session here; the stale browser
+    // cookie no longer matches any session and is ignored until
+    // destroySession() (logout) removes it or it expires naturally.
+    await bestEffortDbCleanup(() =>
+      db.delete(adminSessions).where(eq(adminSessions.tokenHash, hashToken(token))),
+    );
     return null;
   }
 
@@ -236,7 +244,9 @@ export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (token) {
-    await db.delete(adminSessions).where(eq(adminSessions.tokenHash, hashToken(token)));
+    await bestEffortDbCleanup(() =>
+      db.delete(adminSessions).where(eq(adminSessions.tokenHash, hashToken(token))),
+    );
   }
   cookieStore.delete(SESSION_COOKIE_NAME);
 }

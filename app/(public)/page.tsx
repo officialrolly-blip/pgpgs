@@ -1,5 +1,6 @@
 import HeroSlider from "@/components/hero-slider";
 import OfficerMarquee, { type HomepageOfficer } from "@/components/officer-marquee";
+import ContactForm from "@/components/contact-form";
 import Image from "next/image";
 import Link from "next/link";
 import { asc, desc, eq } from "drizzle-orm";
@@ -280,7 +281,7 @@ export default async function Home() {
       </section>
 
       <section className="bg-[var(--gold)] px-6 py-16 text-black sm:px-10 sm:py-20 lg:px-16" aria-labelledby="contact-heading">
-        <div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-8 sm:flex-row sm:items-center">
+        <div className="mx-auto grid max-w-[1440px] items-start gap-10 lg:grid-cols-2 lg:gap-16">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-black/60">
               Start a conversation
@@ -290,17 +291,18 @@ export default async function Home() {
             </h2>
             <p className="mt-4 max-w-xl text-base leading-7 text-black/70 sm:text-lg">
               Have questions about the chapter, our programs, or membership?
-              Connect with the Pi Gamma Phi Gamma Sigma Roxas City Capiz
-              Chapter.
+              Send us a message and the Pi Gamma Phi Gamma Sigma Roxas City
+              Capiz Chapter will get back to you.
             </p>
+            <Link
+              href="/join"
+              className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--green-dark)] underline decoration-[var(--green-dark)]/40 underline-offset-4 transition hover:decoration-[var(--green-dark)]"
+            >
+              Looking to join instead? Apply for membership
+              <span aria-hidden="true" className="text-base leading-none">→</span>
+            </Link>
           </div>
-          <Link
-            href="/join"
-            className="inline-flex shrink-0 items-center justify-center gap-3 border-2 border-[var(--green-dark)] px-6 py-3.5 text-sm font-semibold tracking-wide text-[var(--green-dark)] transition hover:bg-[var(--green-dark)] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--green-dark)]"
-          >
-            Contact the chapter
-            <span aria-hidden="true" className="text-lg leading-none">→</span>
-          </Link>
+          <ContactForm />
         </div>
       </section>
     </main>

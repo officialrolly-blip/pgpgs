@@ -212,3 +212,20 @@ export const memberSessions = pgTable("member_sessions", {
     .defaultNow()
     .notNull(),
 });
+
+// Queries submitted through the public "Get in touch" contact form.
+// Admins read and manage these in the dashboard Inbox (/admin/inbox).
+export const contactMessages = pgTable("contact_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  contactNumber: text("contact_number"),
+  subject: text("subject"),
+  message: text("message").notNull(),
+  status: text("status").notNull().default("unread"), // unread | read
+  readAt: timestamp("read_at", { withTimezone: true }),
+  readBy: text("read_by"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

@@ -37,7 +37,7 @@ function renderInline(text: string): ReactNode {
           key={tokenIndex}
           src={image?.[2] ?? ""}
           alt={image?.[1] ?? "image"}
-          className="my-2 max-w-full rounded-lg"
+          className="my-2 max-w-full rounded-xl border border-black/5"
           loading="lazy"
         />,
       );
@@ -45,7 +45,10 @@ function renderInline(text: string): ReactNode {
       parts.push(<strong key={tokenIndex}>{token.slice(2, -2)}</strong>);
     } else if (token.startsWith("`")) {
       parts.push(
-        <code key={tokenIndex} className="rounded bg-gray-100 px-1.5 py-0.5 text-[0.9em]">
+        <code
+          key={tokenIndex}
+          className="rounded-md bg-[var(--green-soft)] px-1.5 py-0.5 text-[0.9em] font-medium text-[var(--green-dark)]"
+        >
           {token.slice(1, -1)}
         </code>,
       );
@@ -59,7 +62,7 @@ function renderInline(text: string): ReactNode {
           href={link?.[2]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[var(--green)] underline"
+          className="font-medium text-[var(--green)] underline underline-offset-2 transition-colors hover:text-[var(--green-dark)]"
         >
           {link?.[1] ?? token}
         </a>,
@@ -207,7 +210,7 @@ function renderBlock(block: Block, index: number): ReactNode {
       );
     case "ul":
       return (
-        <ul key={index} className="list-disc space-y-1 pl-5">
+        <ul key={index} className="list-disc space-y-1 pl-5 marker:text-[var(--green)]">
           {block.items.map((item, itemIndex) => (
             <li key={itemIndex}>{renderInline(item)}</li>
           ))}
@@ -215,7 +218,7 @@ function renderBlock(block: Block, index: number): ReactNode {
       );
     case "ol":
       return (
-        <ol key={index} className="list-decimal space-y-1 pl-5">
+        <ol key={index} className="list-decimal space-y-1 pl-5 marker:font-medium marker:text-[var(--green)]/70">
           {block.items.map((item, itemIndex) => (
             <li key={itemIndex}>{renderInline(item)}</li>
           ))}
@@ -225,7 +228,7 @@ function renderBlock(block: Block, index: number): ReactNode {
       return (
         <blockquote
           key={index}
-          className="border-l-4 border-gray-300 pl-3 italic text-gray-600"
+          className="rounded-r-md border-l-[3px] border-[var(--gold)] bg-[var(--gold-soft)]/40 py-1 pl-3 pr-2 italic text-gray-700"
         >
           {renderInline(block.text)}
         </blockquote>
@@ -234,7 +237,7 @@ function renderBlock(block: Block, index: number): ReactNode {
       return (
         <pre
           key={index}
-          className="my-1 flex-1 overflow-x-auto rounded-lg bg-gray-100 px-3 py-2 text-[13px] leading-relaxed"
+          className="my-1.5 flex-1 overflow-x-auto rounded-xl bg-[var(--green-dark)] px-4 py-3 font-mono text-[13px] leading-relaxed text-[#e7f0ea]"
         >
           <code>{block.text}</code>
         </pre>
@@ -246,7 +249,7 @@ function renderBlock(block: Block, index: number): ReactNode {
           key={index}
           src={block.src}
           alt={block.alt}
-          className="my-2 max-w-full rounded-lg"
+          className="my-2 max-w-full rounded-xl border border-black/5"
           loading="lazy"
         />
       );
