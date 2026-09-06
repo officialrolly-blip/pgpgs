@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import KnyteMarkdown from "@/components/knyte-markdown";
 
 interface Message {
@@ -35,26 +34,26 @@ function MessageImage({ src, alt }: { src: string; alt: string }) {
   const [error, setError] = useState(false);
 
   return (
-    <div className="relative mt-2 overflow-hidden rounded-xl border border-black/5">
+    <div className="relative mt-2 rounded-lg overflow-hidden">
       {/* Loading skeleton */}
       {loading && !error && (
-        <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100">
-          <div className="flex h-full min-h-[200px] items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse">
+          <div className="flex items-center justify-center h-full min-h-[200px]">
             <div className="text-center">
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[var(--green)] border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
                 <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
               </div>
-              <p className="mt-2 text-xs text-gray-500">Generating image...</p>
+              <p className="mt-2 text-sm text-gray-500">Generating image...</p>
             </div>
           </div>
         </div>
       )}
-
+      
       {/* Error state */}
       {error && (
-        <div className="flex min-h-[200px] items-center justify-center bg-gray-50">
+        <div className="flex items-center justify-center h-full min-h-[200px] bg-gray-100 rounded-lg">
           <div className="text-center text-gray-500">
-            <svg className="mx-auto mb-2 h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-12 w-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <p className="text-sm">Failed to load image</p>
@@ -63,7 +62,6 @@ function MessageImage({ src, alt }: { src: string; alt: string }) {
       )}
       
       {/* Actual image */}
-      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic AI-generated image URLs */}
       <img
         src={src}
         alt={alt}
@@ -106,86 +104,6 @@ function formatTime(date: Date): string {
   }
 }
 
-// ---- Chat history persistence (localStorage, per verified member) ----
-
-const CHATS_KEY_PREFIX = "pgpgs_knyte_chats";
-const MAX_STORED_SESSIONS = 50;
-const MAX_STORED_MESSAGES = 200;
-
-type StoredRecord = Record<string, unknown>;
-
-function loadStoredChats(memberId: string): { sessions: ChatSession[]; activeSessionId: string } | null {
-  try {
-    const raw = localStorage.getItem(`${CHATS_KEY_PREFIX}:${memberId}`);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const data = parsed as { activeSessionId?: unknown; sessions?: unknown };
-    if (!Array.isArray(data.sessions)) return null;
-
-    const sessions: ChatSession[] = [];
-    for (const entry of data.sessions) {
-      if (!entry || typeof entry !== "object") continue;
-      const s = entry as StoredRecord;
-      if (typeof s.id !== "string" || !Array.isArray(s.messages)) continue;
-
-      const messages: Message[] = [];
-      for (const item of s.messages) {
-        if (!item || typeof item !== "object") continue;
-        const m = item as StoredRecord;
-        messages.push({
-          id: typeof m.id === "string" ? m.id : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          role: m.role === "user" ? "user" : "assistant",
-          content: typeof m.content === "string" ? m.content : "",
-          timestamp: new Date(typeof m.timestamp === "string" ? m.timestamp : Date.now()),
-        });
-      }
-      if (messages.length === 0) continue;
-
-      sessions.push({
-        id: s.id,
-        title: typeof s.title === "string" && s.title.length > 0 ? s.title : "New Chat",
-        createdAt: new Date(typeof s.createdAt === "string" ? s.createdAt : Date.now()),
-        messages,
-      });
-    }
-
-    if (sessions.length === 0) return null;
-
-    const activeSessionId =
-      typeof data.activeSessionId === "string" && sessions.some((s) => s.id === data.activeSessionId)
-        ? data.activeSessionId
-        : sessions[0].id;
-
-    return { sessions, activeSessionId };
-  } catch {
-    // Malformed or unavailable history — start fresh
-    return null;
-  }
-}
-
-function saveChats(memberId: string, sessions: ChatSession[], activeSessionId: string): void {
-  try {
-    const payload = {
-      activeSessionId,
-      sessions: sessions.slice(0, MAX_STORED_SESSIONS).map((s) => ({
-        id: s.id,
-        title: s.title,
-        createdAt: s.createdAt.toISOString(),
-        messages: s.messages.slice(-MAX_STORED_MESSAGES).map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp.toISOString(),
-        })),
-      })),
-    };
-    localStorage.setItem(`${CHATS_KEY_PREFIX}:${memberId}`, JSON.stringify(payload));
-  } catch {
-    // Storage unavailable or full — history stays in memory for this visit
-  }
-}
-
 const INITIAL_MESSAGE = {
   id: "welcome",
   role: "assistant" as const,
@@ -210,6 +128,27 @@ export default function KnyteChat() {
   const [verifyError, setVerifyError] = useState("");
   const memberIdRef = useRef<HTMLInputElement>(null);
 
+  // Check for existing session on mount
+  useEffect(() => {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const member = JSON.parse(stored) as VerifiedMember;
+        setVerifiedMember(member);
+        initializeChat();
+      } catch {
+        sessionStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  // Collapse the sidebar by default on smaller screens
+  useEffect(() => {
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  }, []);
+
   // Initialize chat sessions after verification
   const initializeChat = () => {
     setSessions([
@@ -221,40 +160,6 @@ export default function KnyteChat() {
       },
     ]);
   };
-
-  // Restore a verified session on mount (deferred so state updates
-  // happen outside the synchronous effect body)
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          const member = JSON.parse(stored) as VerifiedMember;
-          setVerifiedMember(member);
-          const saved = loadStoredChats(member.memberId);
-          if (saved) {
-            setSessions(saved.sessions);
-            setActiveSessionId(saved.activeSessionId);
-          } else {
-            initializeChat();
-          }
-        } catch {
-          sessionStorage.removeItem(STORAGE_KEY);
-        }
-      }
-    });
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  // Collapse the sidebar by default on smaller screens
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      if (window.innerWidth < 1024) {
-        setSidebarOpen(false);
-      }
-    });
-    return () => cancelAnimationFrame(raf);
-  }, []);
 
   const activeSession =
     sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
@@ -274,12 +179,6 @@ export default function KnyteChat() {
       memberIdRef.current?.focus();
     }
   }, [activeSessionId, verifiedMember]);
-
-  // Persist chat history for the verified member so it survives restarts
-  useEffect(() => {
-    if (!verifiedMember || sessions.length === 0) return;
-    saveChats(verifiedMember.memberId, sessions, activeSessionId);
-  }, [verifiedMember, sessions, activeSessionId]);
 
   const handleVerify = async () => {
     const trimmed = memberIdInput.trim();
@@ -305,16 +204,10 @@ export default function KnyteChat() {
         return;
       }
 
-      // Store verified member and restore their saved chat history
+      // Store verified member
       setVerifiedMember(data.member);
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data.member));
-      const saved = loadStoredChats(data.member.memberId);
-      if (saved) {
-        setSessions(saved.sessions);
-        setActiveSessionId(saved.activeSessionId);
-      } else {
-        initializeChat();
-      }
+      initializeChat();
     } catch {
       setVerifyError("Connection error. Please try again.");
     } finally {
@@ -698,7 +591,7 @@ export default function KnyteChat() {
               )}
               <span className="max-w-[120px] truncate text-xs font-medium text-gray-700">{verifiedMember?.firstName}</span>
             </div>
-            <Link
+            <a
               href="/"
               aria-label="Back to Home"
               title="Back to Home"
@@ -707,7 +600,7 @@ export default function KnyteChat() {
               <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
-            </Link>
+            </a>
           </div>
         </header>
 
@@ -744,51 +637,59 @@ export default function KnyteChat() {
 
                   {/* Content */}
                   <div className={`flex min-w-0 max-w-[85%] flex-col ${isUser ? "items-end" : "items-start"}`}>
-                    <div className="mb-1 flex items-baseline gap-2">
-                      <span className="text-xs font-semibold text-gray-700">
-                        {isUser
-                          ? verifiedMember
-                            ? `${verifiedMember.firstName} ${verifiedMember.lastName}`
-                            : "You"
-                          : "Knyte"}
-                      </span>
-                      {message.id !== "welcome" && (
-                        <span className="text-[11px] text-gray-400">{formatTime(message.timestamp)}</span>
-                      )}
-                    </div>
-
-                    {text && isUser && (
-                      <div className="whitespace-pre-wrap rounded-2xl rounded-tr-md bg-[var(--green)] px-4 py-2.5 text-left text-sm leading-relaxed text-white shadow-sm">
-                        {text}
-                      </div>
-                    )}
-                    {text && !isUser && (
-                      <div className="w-full text-left text-sm leading-relaxed text-gray-800">
-                        <KnyteMarkdown content={text} />
-                      </div>
-                    )}
-                    {imageUrl && (
-                      <div className="w-full max-w-xs">
-                        <MessageImage src={imageUrl} alt={imageAlt || "Generated image"} />
-                      </div>
-                    )}
+                  <div className={`flex-1 min-w-0 ${message.role === "user" ? "text-right" : "text-left"}`}>
+                    <p className="text-xs font-semibold text-gray-500 mb-1">
+                      {message.role === "assistant" 
+                        ? "Knyte" 
+                        : verifiedMember 
+                          ? `${verifiedMember.firstName} ${verifiedMember.lastName}`
+                          : "You"}
+                    </p>
+                    {(() => {
+                      const { text, imageUrl, imageAlt } = parseContent(message.content);
+                      return (
+                        <>
+                          {text && message.role === "assistant" ? (
+                            <div className="text-sm leading-relaxed text-gray-800">
+                              <KnyteMarkdown content={text} />
+                            </div>
+                          ) : (
+                            text && (
+                              <div className="text-sm leading-relaxed whitespace-pre-wrap inline-block text-left bg-blue-500 text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-[80%]">
+                                {text}
+                              </div>
+                            )
+                          )}
+                          {imageUrl && (
+                            <div className={message.role === "user" ? "flex justify-end" : ""}>
+                              <div className="max-w-sm">
+                                <MessageImage src={imageUrl} alt={imageAlt || "Generated image"} />
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
 
-            {/* Typing indicator */}
             {isTyping && (
-              <div className="knyte-rise flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--green)] ring-2 ring-[var(--green-soft)]">
-                  <Image src="/icon_chatbot.png" alt="Knyte" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="mb-1 text-xs font-semibold text-gray-700">Knyte</span>
-                  <div className="flex items-center gap-1.5 rounded-full bg-[var(--green-soft)] px-4 py-3">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--green)]/70 [animation-delay:0ms]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--green)]/70 [animation-delay:150ms]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--green)]/70 [animation-delay:300ms]" />
+              <div className="py-6 bg-white">
+                <div className="flex gap-4 px-4 max-w-3xl mx-auto">
+                  <div className="shrink-0">
+                    <div className="h-8 w-8 rounded-full bg-[var(--green)] flex items-center justify-center">
+                      <Image src="/icon_chatbot.png" alt="Knyte" width={24} height={24} className="rounded-full" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-500 mb-1">Knyte</p>
+                    <div className="flex items-center gap-1 py-2">
+                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -798,10 +699,9 @@ export default function KnyteChat() {
           </div>
         </div>
 
-        {/* Composer */}
-        <div className="border-t border-gray-200/80 bg-white px-4 pb-4 pt-3">
-          <div className="mx-auto max-w-3xl">
-            <div className="flex items-end gap-2 rounded-2xl border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition focus-within:border-[var(--green)] focus-within:ring-4 focus-within:ring-[var(--green)]/10">
+        <div className="border-t border-gray-200 bg-gray-50 p-4">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex gap-3 items-end bg-white rounded-xl border border-gray-300 px-4 py-3 focus-within:border-[var(--green)] transition shadow-sm">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -809,24 +709,17 @@ export default function KnyteChat() {
                 onKeyDown={handleKeyDown}
                 placeholder="Message Knyte..."
                 rows={1}
-                className="flex-1 resize-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
+                className="flex-1 bg-transparent text-gray-800 placeholder-gray-400 outline-none resize-none text-sm"
                 style={{ maxHeight: "120px" }}
                 disabled={isTyping}
               />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isTyping}
-                aria-label="Send message"
-                className="rounded-xl bg-[var(--green)] p-2 text-white shadow-sm transition hover:bg-[var(--green-dark)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-              >
+              <button onClick={handleSend} disabled={!input.trim() || isTyping} className="p-2 rounded-lg bg-[var(--green)] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--green-dark)] transition">
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M22 2 11 13M22 2l-7 20-4-9-9-4z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7" />
                 </svg>
               </button>
             </div>
-            <p className="mt-2.5 text-center text-[11px] text-gray-400">
-              Knyte can help with PGPGS history, member lookups, and schoolwork — math, science, essays, and more.
-            </p>
+            <p className="text-center text-xs text-gray-400 mt-3">Knyte can help with PGPGS history, member lookups, and your schoolwork — math, science, essays, and more.</p>
           </div>
         </div>
       </div>
