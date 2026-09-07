@@ -37,13 +37,13 @@ function renderInline(text: string): ReactNode {
           key={tokenIndex}
           src={image?.[2] ?? ""}
           alt={image?.[1] ?? "image"}
-          className="my-3 max-w-full rounded-xl border border-white/10 shadow-md"
+          className="my-3 max-w-full rounded-2xl border border-[#e4ddcb] shadow-md"
           loading="lazy"
         />,
       );
     } else if (token.startsWith("**")) {
       parts.push(
-        <strong key={tokenIndex} className="font-semibold text-inherit">
+        <strong key={tokenIndex} className="font-semibold text-gray-900">
           {token.slice(2, -2)}
         </strong>,
       );
@@ -51,7 +51,7 @@ function renderInline(text: string): ReactNode {
       parts.push(
         <code
           key={tokenIndex}
-          className="rounded-md border border-[var(--gold)]/20 bg-[var(--gold)]/10 px-1.5 py-0.5 font-mono text-[0.88em] font-medium text-[var(--gold-light)]"
+          className="rounded-md border border-[var(--green)]/20 bg-[var(--green-soft)] px-1.5 py-0.5 font-mono text-[0.88em] font-medium text-[var(--green-dark)]"
         >
           {token.slice(1, -1)}
         </code>,
@@ -70,7 +70,7 @@ function renderInline(text: string): ReactNode {
           href={link?.[2]}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-[var(--gold-light)] underline decoration-[var(--gold)]/50 underline-offset-2 transition-colors hover:text-white hover:decoration-[var(--gold)]"
+          className="font-medium text-[var(--green)] underline decoration-[var(--green)]/40 underline-offset-2 transition-colors hover:text-[var(--green-dark)] hover:decoration-[var(--green)]"
         >
           {link?.[1] ?? token}
         </a>,
@@ -198,19 +198,19 @@ function CodeBlockView({ text, language }: { text: string; language?: string }) 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback if clipboard fails
+      // fallback
     }
   };
 
   return (
-    <div className="my-3 overflow-hidden rounded-xl border border-emerald-500/20 bg-[#06120b] shadow-lg">
-      <div className="flex items-center justify-between border-b border-emerald-950/60 bg-[#08170f] px-3.5 py-1.5 text-xs text-emerald-300/70">
+    <div className="my-3 overflow-hidden rounded-2xl border border-[#1b5c38]/20 bg-[#0d2a1b] shadow-md">
+      <div className="flex items-center justify-between border-b border-white/10 bg-[#092215] px-3.5 py-1.5 text-xs text-emerald-200">
         <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
+          <span className="h-2.5 w-2.5 rounded-full bg-rose-500/90" />
+          <span className="h-2.5 w-2.5 rounded-full bg-amber-500/90" />
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
           {language && (
-            <span className="ml-2 font-mono uppercase tracking-wider text-emerald-400/80 text-[10px]">
+            <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-[var(--gold-light)]">
               {language}
             </span>
           )}
@@ -218,11 +218,11 @@ function CodeBlockView({ text, language }: { text: string; language?: string }) 
         <button
           onClick={handleCopy}
           type="button"
-          className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-medium text-emerald-200/80 transition hover:bg-emerald-900/40 hover:text-white"
+          className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-medium text-emerald-200 transition hover:bg-emerald-800/50 hover:text-white"
         >
           {copied ? (
             <>
-              <svg className="h-3.5 w-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg className="h-3.5 w-3.5 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
               <span className="text-emerald-300">Copied!</span>
@@ -238,7 +238,7 @@ function CodeBlockView({ text, language }: { text: string; language?: string }) 
           )}
         </button>
       </div>
-      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-emerald-100/90">
+      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-[#eaf4ee]">
         <code>{text}</code>
       </pre>
     </div>
@@ -249,7 +249,7 @@ function renderBlock(block: Block, index: number): ReactNode {
   switch (block.type) {
     case "p":
       return (
-        <p key={index} className="my-1.5 leading-relaxed text-inherit">
+        <p key={index} className="my-1.5 leading-relaxed text-[#1a231e]">
           {renderInline(block.text)}
         </p>
       );
@@ -258,9 +258,9 @@ function renderBlock(block: Block, index: number): ReactNode {
         return (
           <h1
             key={index}
-            className="mt-3 mb-2 flex items-center gap-2 text-lg font-bold tracking-tight text-[var(--gold)]"
+            className="mt-3.5 mb-2 flex items-center gap-2 font-serif text-lg font-bold tracking-tight text-[var(--green-dark)]"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
+            <span className="h-2 w-2 rounded-full bg-[var(--gold)]" />
             {renderInline(block.text)}
           </h1>
         );
@@ -269,9 +269,9 @@ function renderBlock(block: Block, index: number): ReactNode {
         return (
           <h2
             key={index}
-            className="mt-2.5 mb-1.5 flex items-center gap-2 text-base font-bold tracking-tight text-[var(--gold)]"
+            className="mt-3 mb-1.5 flex items-center gap-2 font-serif text-base font-bold tracking-tight text-[var(--green-dark)]"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]/80" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
             {renderInline(block.text)}
           </h2>
         );
@@ -280,7 +280,7 @@ function renderBlock(block: Block, index: number): ReactNode {
         return (
           <h3
             key={index}
-            className="mt-2 mb-1 text-sm font-semibold text-emerald-200"
+            className="mt-2.5 mb-1 text-sm font-bold text-[var(--green)]"
           >
             {renderInline(block.text)}
           </h3>
@@ -289,14 +289,14 @@ function renderBlock(block: Block, index: number): ReactNode {
       return (
         <h4
           key={index}
-          className="mt-1.5 mb-1 text-sm font-medium text-emerald-200/90"
+          className="mt-2 mb-1 text-sm font-semibold text-[var(--green)]"
         >
           {renderInline(block.text)}
         </h4>
       );
     case "ul":
       return (
-        <ul key={index} className="my-2 list-disc space-y-1 pl-5 marker:text-[var(--gold)]">
+        <ul key={index} className="my-2 list-disc space-y-1.5 pl-5 marker:text-[var(--green)] text-[#1a231e]">
           {block.items.map((item, itemIndex) => (
             <li key={itemIndex} className="leading-relaxed">
               {renderInline(item)}
@@ -306,7 +306,7 @@ function renderBlock(block: Block, index: number): ReactNode {
       );
     case "ol":
       return (
-        <ol key={index} className="my-2 list-decimal space-y-1 pl-5 marker:font-semibold marker:text-[var(--gold)]">
+        <ol key={index} className="my-2 list-decimal space-y-1.5 pl-5 marker:font-bold marker:text-[var(--green)] text-[#1a231e]">
           {block.items.map((item, itemIndex) => (
             <li key={itemIndex} className="leading-relaxed">
               {renderInline(item)}
@@ -318,7 +318,7 @@ function renderBlock(block: Block, index: number): ReactNode {
       return (
         <blockquote
           key={index}
-          className="my-2.5 rounded-r-xl border-l-[3px] border-[var(--gold)] bg-[var(--gold)]/5 py-2 pl-4 pr-3 text-sm italic text-amber-100/90 shadow-sm"
+          className="my-3 rounded-r-xl border-l-[3px] border-[var(--gold)] bg-[#faf6ea] py-2 pl-4 pr-3 text-sm italic text-[#4a3f23] shadow-sm"
         >
           {renderInline(block.text)}
         </blockquote>
@@ -332,7 +332,7 @@ function renderBlock(block: Block, index: number): ReactNode {
           key={index}
           src={block.src}
           alt={block.alt}
-          className="my-3 max-w-full rounded-xl border border-white/10 shadow-lg"
+          className="my-3 max-w-full rounded-2xl border border-[#e4ddcb] shadow-md"
           loading="lazy"
         />
       );
