@@ -122,13 +122,13 @@ export default function MemberIdPage() {
 
   const captureIdCard = useCallback(async () => {
     // Capture front face
-    if (idCardFrontRef.current) {
+        if (idCardFrontRef.current) {
       try {
         const canvas = await html2canvas(idCardFrontRef.current, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
-          backgroundColor: null,
+          backgroundColor: "#fbf7ee",
           logging: false,
         });
         const imageUrl = canvas.toDataURL("image/jpeg", 0.92);
@@ -138,13 +138,13 @@ export default function MemberIdPage() {
       }
     }
     // Capture back face
-    if (idCardBackRef.current) {
+        if (idCardBackRef.current) {
       try {
         const canvas = await html2canvas(idCardBackRef.current, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
-          backgroundColor: null,
+          backgroundColor: "#fbf7ee",
           logging: false,
         });
         const imageUrl = canvas.toDataURL("image/jpeg", 0.92);
@@ -353,7 +353,7 @@ function DetailCard({ label, value, large }: { label: string; value: string; lar
 
 function IdCardFront({ member }: { member: IdMember }) {
   return (
-    <div className="flex h-full flex-col" style={{ color: GREEN_DARK }}>
+    <div className="flex h-full flex-col bg-[#fbf7ee]" style={{ color: GREEN_DARK }}>
       <header className="relative z-10 flex h-[56px] shrink-0 items-center pl-3 pr-4" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
         <Image src="/logo2.png" alt="Pi Gamma Phi Gamma Sigma logo" width={360} height={80} className="h-[44px] w-[280px] object-contain" />
       </header>
@@ -388,7 +388,7 @@ function IdCardFront({ member }: { member: IdMember }) {
 
 function IdCardBack({ member }: { member: IdMember }) {
   return (
-    <div className="flex h-full flex-col" style={{ color: GREEN_DARK }}>
+    <div className="flex h-full flex-col bg-[#fbf7ee]" style={{ color: GREEN_DARK }}>
       <header className="relative z-10 flex h-[36px] shrink-0 items-center gap-2 px-3" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
         <p className="min-w-0 text-[9px] font-bold uppercase leading-tight tracking-[0.18em] text-white">In case of <span style={{ color: GOLD }}>emergency</span></p>
         <div className="ml-auto h-[28px] w-[28px] shrink-0 rounded-full bg-white/15 p-[2px]">
