@@ -20,8 +20,34 @@ function formatDate(value: string | null) {
 
 type MemberBadge = {
   label: string;
-  variant: "officer" | "former" | "status";
+  variant: "officer" | "former" | "status" | "verified";
 };
+
+const VerifiedIcon = () => (
+  <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3 fill-current">
+    <path d="M4.5 1.5L5.5 3H7L5.5 5L4.5 4L2.5 6L1.5 5L2.5 4L1 2.5L2.5 1L4.5 2.5V1.5M10 1L11.5 3L10 5L8.5 3L10 1M9 7L10.5 9L9 11L7.5 9L9 7Z" />
+  </svg>
+);
+
+const BADGE_STYLES: Record<MemberBadge["variant"], string> = {
+  officer:
+    "bg-[var(--gold)] text-black shadow-[0_6px_14px_rgba(201,162,39,0.45)]",
+  former: "bg-[var(--army-green-dark)] text-white",
+  status: "bg-[var(--green-soft)] text-[var(--green-dark)]",
+  verified: "bg-blue-500 text-white",
+};
+
+/**
+ * Officers, former officers, and other special memberships are surfaced as
+ * badges on the member's photo card. Plain "Member" records stay badge-free.
+ */
+function StarIcon() {
+  return (
+    <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3 fill-current">
+      <path d="M6 .5l1.66 3.36 3.71.54-2.68 2.62.63 3.7L6 8.94 2.68 10.72l.63-3.7L.63 4.4l3.71-.54L6 .5z" />
+    </svg>
+  );
+}
 
 /**
  * Officers, former officers, and other special memberships are surfaced as
@@ -31,38 +57,24 @@ function getMemberBadges(
   status: string,
   officerPosition: string | null,
 ): MemberBadge[] {
+  const badges: MemberBadge[] = [];
   if (status === "PGP-GS Roxas City Chapter Officer") {
-    return [
-      {
-        label: officerPosition
-          ? `Officer · ${officerPosition}`
-          : "Chapter Officer",
-        variant: "officer",
-      },
-    ];
+    badges.push({
+      label: officerPosition
+        ? `Officer · ${officerPosition}`
+        : "Chapter Officer",
+      variant: "officer",
+    });
+  } else if (status.startsWith("Former")) {
+    badges.push({ label: status, variant: "former" });
+  } else if (status !== "Member" && status !== "Neophyte") {
+    badges.push({ label: status, variant: "status" });
   }
-  if (status.startsWith("Former")) {
-    return [{ label: status, variant: "former" }];
+  // Verified badge: anyone who is no longer a Neophyte is considered verified
+  if (status !== "Neophyte") {
+    badges.push({ label: "Verified", variant: "verified" });
   }
-  if (status !== "Member") {
-    return [{ label: status, variant: "status" }];
-  }
-  return [];
-}
-
-const BADGE_STYLES: Record<MemberBadge["variant"], string> = {
-  officer:
-    "bg-[var(--gold)] text-black shadow-[0_6px_14px_rgba(201,162,39,0.45)]",
-  former: "bg-[var(--army-green-dark)] text-white",
-  status: "bg-[var(--green-soft)] text-[var(--green-dark)]",
-};
-
-function StarIcon() {
-  return (
-    <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3 fill-current">
-      <path d="M6 .5l1.66 3.36 3.71.54-2.68 2.62.63 3.7L6 8.94 2.68 10.72l.63-3.7L.63 4.4l3.71-.54L6 .5z" />
-    </svg>
-  );
+  return badges;
 }
 
 export default async function Page() {
@@ -138,9 +150,8 @@ export default async function Page() {
                             key={badge.label}
                             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${BADGE_STYLES[badge.variant]}`}
                           >
-                            {badge.variant === "officer" ? (
-                              <StarIcon />
-                            ) : null}
+                                                        {badge.variant === "officer" ? <StarIcon /> : null}
+                            {badge.variant === "verified" ? <VerifiedIcon /> : null}
                             {badge.label}
                           </span>
                         ))}
@@ -150,6 +161,12 @@ export default async function Page() {
                   <div className="px-5 py-5">
                     <h2 className="font-serif text-2xl font-semibold text-[var(--green-dark)]">
                       {fullName}
+                      {member.status !== "Neophyte" ? (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-500 px-2.5 py-0.5 text-xs font-bold text-white">
+                          <VerifiedIcon />
+                          Verified
+                        </span>
+                      ) : null}
                     </h2>
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 text-sm">
                       <div className="col-span-2">

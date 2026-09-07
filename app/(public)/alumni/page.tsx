@@ -8,6 +8,12 @@ import { pgpmembers } from "@/db/schema";
 export const metadata: Metadata = { title: "Our Alumni" };
 export const dynamic = "force-dynamic";
 
+const VerifiedIcon = () => (
+  <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3 fill-current">
+    <path d="M4.5 1.5L5.5 3H7L5.5 5L4.5 4L2.5 6L1.5 5L2.5 4L1 2.5L2.5 1L4.5 2.5V1.5M10 1L11.5 3L10 5L8.5 3L10 1M9 7L10.5 9L9 11L7.5 9L9 7Z" />
+  </svg>
+);
+
 // All of these are considered alumni of the chapter.
 const ALUMNI_STATUSES = [
   "Alumni",
@@ -16,7 +22,7 @@ const ALUMNI_STATUSES = [
   "Former Chapter Master Initiator",
   "Former Chapter Lady Initiator",
   "Grand Knights",
-] as const;
+];
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
@@ -93,6 +99,10 @@ export default async function AlumniPage() {
               <div className="px-5 py-5">
                 <h2 className="font-serif text-2xl font-semibold text-[var(--green-dark)]">
                   {fullName}
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-500 px-2.5 py-0.5 text-xs font-bold text-white">
+                    <VerifiedIcon />
+                    Verified
+                  </span>
                 </h2>
                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 text-sm">
                   <div className="col-span-2">
