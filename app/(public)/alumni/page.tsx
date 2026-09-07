@@ -99,9 +99,8 @@ export default async function AlumniPage() {
               <div className="px-5 py-5">
                 <h2 className="font-serif text-2xl font-semibold text-[var(--green-dark)]">
                   {fullName}
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-500 px-2.5 py-0.5 text-xs font-bold text-white">
+                  <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white">
                     <VerifiedIcon />
-                    Verified
                   </span>
                 </h2>
                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 text-sm">

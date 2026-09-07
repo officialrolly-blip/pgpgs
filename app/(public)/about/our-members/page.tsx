@@ -162,9 +162,8 @@ export default async function Page() {
                     <h2 className="font-serif text-2xl font-semibold text-[var(--green-dark)]">
                       {fullName}
                       {member.status !== "Neophyte" ? (
-                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-500 px-2.5 py-0.5 text-xs font-bold text-white">
+                        <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white">
                           <VerifiedIcon />
-                          Verified
                         </span>
                       ) : null}
                     </h2>
