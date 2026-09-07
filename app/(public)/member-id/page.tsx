@@ -48,6 +48,7 @@ const GOLD = "#e8c96a";
 
 export default function MemberIdPage() {
   const [phase, setPhase] = useState<Phase>("search");
+  const [view, setView] = useState<"search" | "login">("search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchMember[]>([]);
   const [selectedMember, setSelectedMember] = useState<SearchMember | null>(null);
@@ -201,7 +202,7 @@ export default function MemberIdPage() {
           <h1 className="text-2xl font-bold uppercase tracking-[0.18em] sm:text-3xl" style={{ color: GREEN_DARK }}>Digital Membership ID</h1>
           <p className="mt-2 text-sm text-[#5a6b5f]">Search your name, verify your identity, and access your official PGPGS digital ID.</p>
         </div>
-        {phase === "search" && (
+                {phase === "search" && view === "search" && (
           <div className="rounded-2xl border border-[#e6dcc4] bg-white/80 p-6 shadow-lg backdrop-blur">
             <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-[#8a7b52]">Search your name</label>
             <div ref={searchRef} className="relative">
@@ -234,6 +235,11 @@ export default function MemberIdPage() {
               )}
             </div>
             <p className="mt-3 text-xs text-[#8a7b52]">Your name must match the official PGPGS records. Only full members can access a digital ID.</p>
+            <div className="mt-4 border-t border-[#e6dcc4] pt-3 text-center">
+              <button type="button" onClick={() => { setView("login"); setPhase("login"); setError(""); setLoginMemberId(""); setLoginPassword(""); }} className="text-xs font-semibold text-[#1b5c38] hover:underline">
+                Already have a Member ID? Sign in
+              </button>
+            </div>
           </div>
         )}
         {phase === "verify-modal" && selectedMember && (
@@ -263,7 +269,7 @@ export default function MemberIdPage() {
             <p className="mt-1 text-xs text-[#8a7b52]">Confirming your membership details</p>
           </div>
         )}
-        {(phase === "credentials-created" || phase === "login") && (
+                {(phase === "credentials-created" || (phase === "login" && view === "login")) && (
           <div className="rounded-2xl border border-[#e6dcc4] bg-white/90 p-6 shadow-xl backdrop-blur">
             {phase === "credentials-created" && (
               <div className="mb-5 rounded-lg border border-[#d4e8d6] bg-[#f0f7f1] px-4 py-3">
@@ -285,6 +291,11 @@ export default function MemberIdPage() {
               {loading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>}
               <span>{loading ? "Signing in…" : "Sign In to View My ID"}</span>
             </button>
+            {phase === "login" && view === "login" && (
+              <button type="button" onClick={() => { setView("search"); setPhase("search"); setError(""); setLoginMemberId(""); setLoginPassword(""); }} className="mt-3 w-full rounded-lg border border-[#d9ceb3] px-4 py-2 text-xs font-semibold text-[#1b5c38] hover:bg-[#f7f2e6]">
+                Back to Search
+              </button>
+            )}
           </div>
         )}
         {phase === "id" && idMember && (
