@@ -268,9 +268,9 @@ function IdFrontBody({ member }: { member: IdCardMember }) {
   return (
     <div className="relative flex-1 overflow-hidden bg-[#fbf7ee]">
       <Watermark />
-      <div className="relative z-10 flex h-full gap-[1.36cqw] px-[1.59cqw] py-[1.14cqw]">
+      <div className="relative z-10 flex h-full gap-2 px-3 py-2">
         {/* Left column — member photo (2x2 inch, head to shoulder) */}
-        <div className="flex shrink-0 flex-col items-center gap-[0.68cqw]">
+        <div className="flex shrink-0 flex-col items-center gap-1">
           {member.hasPhoto && member.photoUrl ? (
             <Image
               src={member.photoUrl}
@@ -278,53 +278,53 @@ function IdFrontBody({ member }: { member: IdCardMember }) {
               width={192}
               height={256}
               alt=""
-              className="h-[34.1cqw] w-[27.3cqw] rounded-[2.27cqw] border-[0.45cqw] border-[#e0d6bf] bg-white object-cover object-top shadow-[0_2px_6px_rgba(15,61,38,0.12)]"
+              className="h-[150px] w-[120px] rounded-[10px] border-2 border-[#e0d6bf] bg-white object-cover object-top shadow-[0_2px_6px_rgba(15,61,38,0.12)]"
             />
           ) : (
-            <div className="flex h-[34.1cqw] w-[27.3cqw] items-center justify-center rounded-[2.27cqw] border-[0.45cqw] border-[#e0d6bf] bg-[#e7f0ea] text-[6.82cqw] font-bold text-[var(--green)] shadow-[0_2px_6px_rgba(15,61,38,0.12)]">
+            <div className="flex h-[150px] w-[120px] items-center justify-center rounded-[10px] border-2 border-[#e0d6bf] bg-[#e7f0ea] text-3xl font-bold text-[var(--green)] shadow-[0_2px_6px_rgba(15,61,38,0.12)]">
               {initialsOf(member.fullName)}
             </div>
           )}
-          <span className="text-[1.59cqw] font-semibold uppercase tracking-[0.12em] text-[#8a7b52]">
+          <span className="text-[7px] font-semibold uppercase tracking-[0.12em] text-[#8a7b52]">
             Member photo
           </span>
         </div>
 
         {/* Right column — personal details */}
-        <div className="flex min-w-0 flex-1 flex-col gap-[0.68cqw]">
-          <div className="rounded-[2.27cqw] border-[0.23cqw] border-[#e6dcc4] bg-white/80 px-[1.14cqw] py-[0.68cqw] backdrop-blur-[1px]">
-            <p className="text-[1.7cqw] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="rounded-[10px] border border-[#e6dcc4] bg-white/80 px-2 py-1 backdrop-blur-[1px]">
+            <p className="text-[7px] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
               Full name
             </p>
-            <p className="text-[2.84cqw] font-bold uppercase leading-tight text-[var(--green-dark)]">
+            <p className="text-[12px] font-bold uppercase leading-tight text-[var(--green-dark)]">
               {member.fullName}
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-[0.68cqw]">
-            <div className="rounded-[2.27cqw] border-[0.23cqw] border-[#e6dcc4] bg-white/80 px-[1.14cqw] py-[0.68cqw] backdrop-blur-[1px]">
-              <p className="text-[1.7cqw] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
+          <div className="grid grid-cols-2 gap-1">
+            <div className="rounded-[10px] border border-[#e6dcc4] bg-white/80 px-2 py-1 backdrop-blur-[1px]">
+              <p className="text-[7px] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
                 Date of birth
               </p>
-              <p className="text-[2.5cqw] font-semibold leading-tight text-[#1c2c22]">
+              <p className="text-[11px] font-semibold leading-tight text-[#1c2c22]">
                 {member.dateOfBirth}
               </p>
             </div>
-            <div className="rounded-[2.27cqw] border-[0.23cqw] border-[#e6dcc4] bg-white/80 px-[1.14cqw] py-[0.68cqw] backdrop-blur-[1px]">
-              <p className="text-[1.7cqw] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
+            <div className="rounded-[10px] border border-[#e6dcc4] bg-white/80 px-2 py-1 backdrop-blur-[1px]">
+              <p className="text-[7px] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
                 Place of birth
               </p>
-              <p className="text-[2.5cqw] font-semibold leading-tight text-[#1c2c22]">
+              <p className="text-[11px] font-semibold leading-tight text-[#1c2c22]">
                 {member.placeOfBirth}
               </p>
             </div>
           </div>
 
-          <div className="flex-1 rounded-[2.27cqw] border-[0.23cqw] border-[#e6dcc4] bg-white/80 px-[1.14cqw] py-[0.68cqw] backdrop-blur-[1px]">
-            <p className="text-[1.7cqw] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
+          <div className="flex-1 rounded-[10px] border border-[#e6dcc4] bg-white/80 px-2 py-1 backdrop-blur-[1px]">
+            <p className="text-[7px] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">
               Complete address
             </p>
-            <p className="text-[2.39cqw] font-medium leading-[1.35] text-[#1c2c22]">
+            <p className="text-[10px] font-medium leading-[1.35] text-[#1c2c22]">
               {member.address}
             </p>
           </div>
@@ -336,11 +336,11 @@ function IdFrontBody({ member }: { member: IdCardMember }) {
 
 function IdFooter({ memberId }: { memberId: string }) {
   return (
-    <footer className="relative z-10 flex h-[8.6cqw] shrink-0 items-center justify-between bg-[linear-gradient(135deg,#0f3d26,#1b5c38)] px-[1.82cqw]">
-      <p className="text-[2.16cqw] font-bold uppercase tracking-[0.16em] text-[#f0e3b3]">
+    <footer className="relative z-10 flex h-[38px] shrink-0 items-center justify-between bg-[linear-gradient(135deg,#0f3d26,#1b5c38)] px-4">
+      <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#f0e3b3]">
         PGPGS Membership ID number
       </p>
-      <p className="font-mono text-[2.5cqw] font-extrabold uppercase tracking-[0.08em] text-white">
+      <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.08em] text-white">
         {memberId}
       </p>
     </footer>
@@ -353,11 +353,11 @@ function IdFooter({ memberId }: { memberId: string }) {
 
 function BackHeader() {
   return (
-    <header className="relative z-10 flex h-[10.9cqw] shrink-0 items-center gap-[1.14cqw] bg-[linear-gradient(135deg,#0f3d26,#1b5c38)] px-[1.36cqw]">
-      <p className="min-w-0 text-[2.5cqw] font-bold uppercase leading-tight tracking-[0.2em] text-white">
+    <header className="relative z-10 flex h-[48px] shrink-0 items-center gap-2 bg-[linear-gradient(135deg,#0f3d26,#1b5c38)] px-3">
+      <p className="min-w-0 text-[11px] font-bold uppercase leading-tight tracking-[0.2em] text-white">
         In case of <span className="text-[#e8c96a]">emergency</span>
       </p>
-      <LogoMark className="ml-auto h-[2.05cqw] w-[2.05cqw] shrink-0 p-[0.23cqw]" />
+      <LogoMark className="ml-auto h-[9px] w-[9px] shrink-0 p-[1px]" />
     </header>
   );
 }
@@ -366,48 +366,48 @@ function IdBackBody({ member, qrCode }: { member: IdCardMember; qrCode: string }
   return (
     <div className="relative flex-1 overflow-hidden bg-[#fbf7ee]">
       <Watermark />
-      <div className="relative z-10 flex h-full gap-[1.36cqw] px-[1.59cqw] py-[1.14cqw]">
+      <div className="relative z-10 flex h-full gap-2 px-3 py-2">
         {/* Left column — Emergency contact + membership details (wider) */}
-        <div className="flex min-w-0 flex-[2] flex-col gap-[0.68cqw]">
-          <div className="rounded-[2.27cqw] border-[0.23cqw] border-[#e6dcc4] bg-white/85 px-[1.36cqw] py-[0.91cqw] backdrop-blur-[1px]">
-            <p className="text-[1.7cqw] font-bold uppercase tracking-[0.18em] text-[#8a7b52]">
+        <div className="flex min-w-0 flex-[2] flex-col gap-1">
+          <div className="rounded-[10px] border border-[#e6dcc4] bg-white/85 px-3 py-2 backdrop-blur-[1px]">
+            <p className="text-[7px] font-bold uppercase tracking-[0.18em] text-[#8a7b52]">
               Emergency Contact Details
             </p>
-            <p className="mt-[0.45cqw] text-[2.73cqw] font-bold uppercase leading-[1.3] text-[var(--green-dark)]">
+            <p className="mt-[2px] text-[12px] font-bold uppercase leading-[1.3] text-[var(--green-dark)]">
               {member.guardianName}
             </p>
-            <p className="mt-[0.23cqw] text-[2.16cqw] leading-[1.3] text-[#37473c]">
+            <p className="mt-[1px] text-[9px] leading-[1.3] text-[#37473c]">
               {member.guardianAddress}
             </p>
-            <p className="mt-[0.45cqw] font-mono text-[3.18cqw] font-bold tracking-[0.04em] text-[var(--green)]">
+            <p className="mt-[2px] font-mono text-[14px] font-bold tracking-[0.04em] text-[var(--green)]">
               {member.guardianContact}
             </p>
           </div>
 
-          <div className="flex-1 rounded-[2.27cqw] border-[0.23cqw] border-[#e6dcc4] bg-white/80 px-[1.36cqw] py-[0.91cqw] backdrop-blur-[1px]">
-            <div className="flex items-center justify-between gap-[1.36cqw]">
+          <div className="flex-1 rounded-[10px] border border-[#e6dcc4] bg-white/80 px-3 py-2 backdrop-blur-[1px]">
+            <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[1.7cqw] font-bold uppercase tracking-[0.14em] text-[#8a7b52]">
+                <p className="text-[7px] font-bold uppercase tracking-[0.14em] text-[#8a7b52]">
                   Chapter
                 </p>
-                <p className="text-[2.27cqw] font-semibold leading-tight text-[#1c2c22]">
+                <p className="text-[10px] font-semibold leading-tight text-[#1c2c22]">
                   {member.chapter}
                 </p>
               </div>
               <div className="min-w-0 text-right">
-                <p className="text-[1.7cqw] font-bold uppercase tracking-[0.14em] text-[#8a7b52]">
+                <p className="text-[7px] font-bold uppercase tracking-[0.14em] text-[#8a7b52]">
                   Member Contact
                 </p>
-                <p className="font-mono text-[2.27cqw] font-semibold text-[#1c2c22]">
+                <p className="font-mono text-[10px] font-semibold text-[#1c2c22]">
                   {member.contactNumber}
                 </p>
               </div>
             </div>
-            <div className="mt-[0.68cqw] border-t-[0.23cqw] border-[#e6dcc4] pt-[0.68cqw]">
-              <p className="text-[1.7cqw] font-bold uppercase tracking-[0.14em] text-[#8a7b52]">
+            <div className="mt-1 border-t border-[#e6dcc4] pt-1">
+              <p className="text-[7px] font-bold uppercase tracking-[0.14em] text-[#8a7b52]">
                 Date Survive
               </p>
-              <p className="font-mono text-[2.27cqw] font-semibold text-[#1c2c22]">
+              <p className="font-mono text-[10px] font-semibold text-[#1c2c22]">
                 {member.dateSurvived}
               </p>
             </div>
@@ -415,16 +415,16 @@ function IdBackBody({ member, qrCode }: { member: IdCardMember; qrCode: string }
         </div>
 
         {/* Right column — QR code only */}
-        <div className="flex shrink-0 flex-col items-center justify-center gap-[0.45cqw]">
+        <div className="flex shrink-0 flex-col items-center justify-center gap-1">
           <Image
             src={qrCode}
             alt="Scan to verify membership"
             width={72}
             height={72}
             unoptimized
-            className="h-[16.36cqw] w-[16.36cqw] object-contain"
+            className="h-[72px] w-[72px] object-contain"
           />
-          <p className="text-[1.48cqw] font-bold uppercase tracking-[0.1em] text-[#8a7b52]">
+          <p className="text-[6px] font-bold uppercase tracking-[0.1em] text-[#8a7b52]">
             Scan to verify
           </p>
         </div>
@@ -435,8 +435,8 @@ function IdBackBody({ member, qrCode }: { member: IdCardMember; qrCode: string }
 
 function BackFooter() {
   return (
-    <footer className="relative z-10 flex h-[6.82cqw] shrink-0 items-center justify-center bg-[linear-gradient(135deg,#0f3d26,#1b5c38)] px-[1.59cqw]">
-      <p className="text-center text-[1.7cqw] font-bold uppercase leading-tight tracking-[0.2em] text-[#f0e3b3]">
+    <footer className="relative z-10 flex h-[30px] shrink-0 items-center justify-center bg-[linear-gradient(135deg,#0f3d26,#1b5c38)] px-4">
+      <p className="text-center text-[7px] font-bold uppercase leading-tight tracking-[0.2em] text-[#f0e3b3]">
         Pi Gamma Phi 1975 Gamma Sigma · Roxas City Capiz Chapter
       </p>
     </footer>

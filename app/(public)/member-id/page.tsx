@@ -340,12 +340,12 @@ const DigitalIdCard = ({ member, flipped, frontRef, backRef }: DigitalIdCardProp
 
 function DetailCard({ label, value, large }: { label: string; value: string; large?: boolean }) {
   return (
-    <div className="px-[0.93cqw] py-[0.93cqw]">
-      <p className="text-[1.86cqw] font-bold uppercase tracking-[0.14em] text-[#8a7b52]">{label}</p>
+    <div className="px-1 py-1">
+      <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7b52]">{label}</p>
       {large ? (
-        <p className="text-[3.02cqw] font-bold uppercase leading-tight" style={{ color: GREEN_DARK }}>{value}</p>
+        <p className="text-[13px] font-bold uppercase leading-tight" style={{ color: GREEN_DARK }}>{value}</p>
       ) : (
-        <p className="text-[2.33cqw] font-semibold leading-tight text-[#1c2c22]">{value}</p>
+        <p className="text-[10px] font-semibold leading-tight text-[#1c2c22]">{value}</p>
       )}
     </div>
   );
@@ -354,33 +354,33 @@ function DetailCard({ label, value, large }: { label: string; value: string; lar
 function IdCardFront({ member }: { member: IdMember }) {
   return (
     <div className="flex h-full flex-col" style={{ color: GREEN_DARK }}>
-      <header className="relative z-10 flex h-[13.02cqw] shrink-0 items-center pl-[2.79cqw] pr-[3.72cqw]" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
-        <Image src="/logo2.png" alt="Pi Gamma Phi Gamma Sigma logo" width={360} height={80} className="h-[10.23cqw] w-[65.12cqw] object-contain" />
+      <header className="relative z-10 flex h-[56px] shrink-0 items-center pl-3 pr-4" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
+        <Image src="/logo2.png" alt="Pi Gamma Phi Gamma Sigma logo" width={360} height={80} className="h-[44px] w-[280px] object-contain" />
       </header>
       <div className="watermark-container pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
         <Image src="/LOGOS.png" alt="" width={400} height={400} unoptimized className="w-1/2 object-contain opacity-[0.08]" />
       </div>
-      <div className="relative z-10 flex flex-1 gap-[2.79cqw] px-[2.79cqw] py-[1.86cqw]">
-        <div className="flex shrink-0 flex-col items-center gap-[0.93cqw]">
+      <div className="relative z-10 flex flex-1 gap-3 px-3 py-2">
+        <div className="flex shrink-0 flex-col items-center gap-1">
           {member.hasPhoto && member.photoUrl ? (
-            <Image src={member.photoUrl} unoptimized width={192} height={256} alt="" className="h-[32.56cqw] w-[25.58cqw] rounded-[1.86cqw] border-[0.47cqw] border-[#e0d6bf] bg-white object-cover object-top shadow-[0_2px_6px_rgba(15,61,38,0.12)]" style={{ objectPosition: "center 15%" }} />
+            <Image src={member.photoUrl} unoptimized width={192} height={256} alt="" className="h-[140px] w-[110px] rounded-[8px] border-2 border-[#e0d6bf] bg-white object-cover object-top shadow-[0_2px_6px_rgba(15,61,38,0.12)]" style={{ objectPosition: "center 15%" }} />
           ) : (
-            <div className="flex h-[32.56cqw] w-[25.58cqw] items-center justify-center rounded-[1.86cqw] border-[0.47cqw] border-[#e0d6bf] text-[6.98cqw] font-bold shadow-[0_2px_6px_rgba(15,61,38,0.12)]" style={{ background: "#e7f0ea", color: GREEN }}>{initialsOf(member.fullName)}</div>
+            <div className="flex h-[140px] w-[110px] items-center justify-center rounded-[8px] border-2 border-[#e0d6bf] text-3xl font-bold shadow-[0_2px_6px_rgba(15,61,38,0.12)]" style={{ background: "#e7f0ea", color: GREEN }}>{initialsOf(member.fullName)}</div>
           )}
-          <span className="text-[1.63cqw] font-semibold uppercase tracking-[0.1em] text-[#8a7b52]">Member photo</span>
+          <span className="text-[7px] font-semibold uppercase tracking-[0.1em] text-[#8a7b52]">Member photo</span>
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-[1.4cqw]">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <DetailCard label="Full name" value={member.fullName} large />
-          <div className="grid grid-cols-2 gap-[1.4cqw]">
+          <div className="grid grid-cols-2 gap-1.5">
             <DetailCard label="Date of birth" value={member.dateOfBirth} />
             <DetailCard label="Place of birth" value={member.placeOfBirth} />
           </div>
           <div className="flex-1"><DetailCard label="Complete address" value={member.address} /></div>
         </div>
       </div>
-      <footer className="relative z-10 flex h-[6.51cqw] shrink-0 items-center justify-between px-[2.79cqw]" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
-        <p className="text-[1.86cqw] font-bold uppercase tracking-[0.14em]" style={{ color: GOLD }}>PGPGS Membership ID number</p>
-        <p className="font-mono text-[2.33cqw] font-extrabold uppercase tracking-[0.06em] text-white">{member.memberId}</p>
+      <footer className="relative z-10 flex h-[28px] shrink-0 items-center justify-between px-3" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
+        <p className="text-[8px] font-bold uppercase tracking-[0.14em]" style={{ color: GOLD }}>PGPGS Membership ID number</p>
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.06em] text-white">{member.memberId}</p>
       </footer>
     </div>
   );
@@ -389,9 +389,9 @@ function IdCardFront({ member }: { member: IdMember }) {
 function IdCardBack({ member }: { member: IdMember }) {
   return (
     <div className="flex h-full flex-col" style={{ color: GREEN_DARK }}>
-      <header className="relative z-10 flex h-[8.37cqw] shrink-0 items-center gap-[1.86cqw] px-[2.79cqw]" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
-        <p className="min-w-0 text-[2.09cqw] font-bold uppercase leading-tight tracking-[0.18em] text-white">In case of <span style={{ color: GOLD }}>emergency</span></p>
-        <div className="ml-auto h-[6.51cqw] w-[6.51cqw] shrink-0 rounded-full bg-white/15 p-[0.47cqw]">
+      <header className="relative z-10 flex h-[36px] shrink-0 items-center gap-2 px-3" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
+        <p className="min-w-0 text-[9px] font-bold uppercase leading-tight tracking-[0.18em] text-white">In case of <span style={{ color: GOLD }}>emergency</span></p>
+        <div className="ml-auto h-[28px] w-[28px] shrink-0 rounded-full bg-white/15 p-[2px]">
           <Image src="/logo2.png" alt="PGPGS" width={36} height={36} className="h-full w-full object-contain" />
         </div>
       </header>
@@ -401,10 +401,10 @@ function IdCardBack({ member }: { member: IdMember }) {
             key={row}
             className="absolute flex justify-around"
             style={{
-              top: `${row * 8.5 - 8.5}cqw`,
+              top: `${row * 23 - 23}px`,
               left: '-8%',
               right: '-8%',
-              transform: `translateX(${row % 2 === 0 ? 0 : '-6cqw'})`,
+              transform: `translateX(${row % 2 === 0 ? 0 : '-26px'})`,
             }}
           >
             {[...Array(11)].map((_, col) => (
@@ -412,7 +412,7 @@ function IdCardBack({ member }: { member: IdMember }) {
                 key={col}
                 className="select-none font-bold uppercase tracking-[0.14em] text-[#1b5c38]"
                 style={{
-                  fontSize: '2.33cqw',
+                  fontSize: '10px',
                   opacity: 0.06,
                   transform: 'rotate(80deg)',
                   transformOrigin: 'center center',
@@ -425,38 +425,38 @@ function IdCardBack({ member }: { member: IdMember }) {
           </div>
         ))}
       </div>
-      <div className="relative z-10 flex flex-1 gap-[1.86cqw] px-[2.79cqw] py-[1.86cqw]">
-        <div className="flex min-w-0 flex-[2] flex-col gap-[1.4cqw]">
-          <div className="px-[0.93cqw] py-[0.93cqw]">
-            <p className="text-[1.63cqw] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">Emergency Contact Details</p>
-            <p className="mt-[0.47cqw] text-[2.33cqw] font-bold uppercase leading-3.5" style={{ color: GREEN_DARK }}>{member.guardianName}</p>
-            <p className="mt-[0.47cqw] text-[1.86cqw] leading-3.5 text-[#37473c]">{member.guardianAddress}</p>
-            <p className="mt-[0.47cqw] font-mono text-[2.56cqw] font-bold tracking-[0.04em]" style={{ color: GREEN }}>{member.guardianContact}</p>
+      <div className="relative z-10 flex flex-1 gap-2 px-3 py-2">
+        <div className="flex min-w-0 flex-[2] flex-col gap-1.5">
+          <div className="px-1 py-1">
+            <p className="text-[7px] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">Emergency Contact Details</p>
+            <p className="mt-[2px] text-[10px] font-bold uppercase leading-3.5" style={{ color: GREEN_DARK }}>{member.guardianName}</p>
+            <p className="mt-[2px] text-[8px] leading-3.5 text-[#37473c]">{member.guardianAddress}</p>
+            <p className="mt-[2px] font-mono text-[11px] font-bold tracking-[0.04em]" style={{ color: GREEN }}>{member.guardianContact}</p>
           </div>
-          <div className="flex-1 px-[0.93cqw] py-[0.93cqw]">
-            <div className="flex items-center justify-between gap-[1.86cqw]">
+          <div className="flex-1 px-1 py-1">
+            <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[1.63cqw] font-bold uppercase tracking-[0.12em] text-[#8a7b52]">Chapter</p>
-                <p className="text-[2.09cqw] font-semibold leading-tight text-[#1c2c22]">{member.chapter}</p>
+                <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8a7b52]">Chapter</p>
+                <p className="text-[9px] font-semibold leading-tight text-[#1c2c22]">{member.chapter}</p>
               </div>
               <div className="min-w-0 text-right">
-                <p className="text-[1.63cqw] font-bold uppercase tracking-[0.12em] text-[#8a7b52]">Member Contact</p>
-                <p className="font-mono text-[2.09cqw] font-semibold text-[#1c2c22]">{member.contactNumber}</p>
+                <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8a7b52]">Member Contact</p>
+                <p className="font-mono text-[9px] font-semibold text-[#1c2c22]">{member.contactNumber}</p>
               </div>
             </div>
-            <div className="mt-[1.4cqw] pt-[1.4cqw]">
-              <p className="text-[1.63cqw] font-bold uppercase tracking-[0.12em] text-[#8a7b52]">Date Survive</p>
-              <p className="font-mono text-[2.09cqw] font-semibold text-[#1c2c22]">{member.dateSurvived}</p>
+            <div className="mt-1.5 pt-1.5">
+              <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8a7b52]">Date Survive</p>
+              <p className="font-mono text-[9px] font-semibold text-[#1c2c22]">{member.dateSurvived}</p>
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-center justify-center gap-[1.86cqw]">
-          <Image src={member.qrCode} alt="Scan to verify membership" width={130} height={130} unoptimized className="h-[30.23cqw] w-[30.23cqw] object-contain" />
-          <p className="text-[2.09cqw] font-bold uppercase tracking-[0.1em] text-[#8a7b52]">Scan to verify</p>
+        <div className="flex shrink-0 flex-col items-center justify-center gap-2">
+          <Image src={member.qrCode} alt="Scan to verify membership" width={130} height={130} unoptimized className="h-[130px] w-[130px] object-contain" />
+          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#8a7b52]">Scan to verify</p>
         </div>
       </div>
-      <footer className="relative z-10 flex h-[5.58cqw] shrink-0 items-center justify-center px-[2.79cqw]" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
-        <p className="text-center text-[1.63cqw] font-bold uppercase leading-tight tracking-[0.18em]" style={{ color: GOLD }}>Pi Gamma Phi 1975 Gamma Sigma · Roxas City Capiz Chapter</p>
+      <footer className="relative z-10 flex h-[24px] shrink-0 items-center justify-center px-3" style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN})` }}>
+        <p className="text-center text-[7px] font-bold uppercase leading-tight tracking-[0.18em]" style={{ color: GOLD }}>Pi Gamma Phi 1975 Gamma Sigma · Roxas City Capiz Chapter</p>
       </footer>
     </div>
   );
