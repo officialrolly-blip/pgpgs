@@ -24,8 +24,8 @@ type MemberBadge = {
 };
 
 const VerifiedIcon = () => (
-  <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3 fill-current">
-    <path d="M4.5 1.5L5.5 3H7L5.5 5L4.5 4L2.5 6L1.5 5L2.5 4L1 2.5L2.5 1L4.5 2.5V1.5M10 1L11.5 3L10 5L8.5 3L10 1M9 7L10.5 9L9 11L7.5 9L9 7Z" />
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-3 w-3">
+    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
   </svg>
 );
 
