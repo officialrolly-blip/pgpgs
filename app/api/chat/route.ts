@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { asc, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { chapters, newsPosts, pgpmembers } from "@/db/schema";
+import { getFreeModels } from "@/lib/openrouter-models";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,45 +10,19 @@ export const dynamic = "force-dynamic";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Free Text Models on OpenRouter (fallback chain, ordered best-first)
-const FREE_MODELS = [
-  "minimax/minimax-m2.7:free",
-  "google/gemma-3-27b-it:free",
-  "openai/gpt-4o:free",
-  "anthropic/claude-3.5-sonnet:free",
-  "openai/gpt-4o-mini:free",
-  "anthropic/claude-3-haiku:free",
-  "microsoft/phi-3-medium-128k-instruct:free",
-  "qwen/qwen-2.5-coder-32b-instruct:free",
-  "mistralai/mistral-nemo:free",
-  "mistralai/mixtral-8x22b-instruct:free",
-  "mistralai/mixtral-8x7b-instruct:free",
-  "mistralai/mistral-7b-instruct:free",
-  "mistralai/codestral-2501:free",
-  "google/gemma-3-12b-it:free",
-  "meta-llama/llama-3.2-3b-instruct:free",
-  "microsoft/phi-3-mini-128k-instruct:free",
-  "microsoft/phi-3.5-mini-instruct:free",
-  "qwen/qwen-2-7b-instruct:free",
-  "meta-llama/llama-3.1-8b-instruct:free",
-  "meta-llama/llama-3.2-1b-instruct:free",
-  "google/gemma-3-4b-it:free",
-  "google/gemma-3-1b-it:free",
-  "minimax/minimax-m3:free",
-  // The free variants below are currently unavailable on OpenRouter (404),
-  // but are kept as a last-resort fallback in case they return.
-  "qwen/qwen-2.5-72b-instruct:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "deepseek/deepseek-chat:free",
-];
+// A placeholder copied from .env.example must not count as a configured key.
+const OPENROUTER_KEY_PLACEHOLDER = "sk-or-v1-your-openrouter-api-key-here";
+function hasOpenRouterKey(): boolean {
+  return (
+    OPENROUTER_API_KEY.length > 0 &&
+    OPENROUTER_API_KEY !== OPENROUTER_KEY_PLACEHOLDER
+  );
+}
 
-// Nemotron - a free reasoning model used for hard math, logic, and academic questions
+// Nemotron - a free reasoning model used for hard math, logic, and academic
+// questions. It is tried first for complex queries. The full fallback chain
+// of ALL OpenRouter free models comes live from @/lib/openrouter-models.
 const REASONING_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
-
-// Optional free Google Gemini fallback (set GEMINI_API_KEY to enable)
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
 
 const REQUEST_TIMEOUT_MS = 75_000;
 const RATE_LIMIT_RETRY_DELAY_MS = 1_200;
@@ -65,15 +40,6 @@ async function fetchWithTimeout(
     clearTimeout(timer);
   }
 }
-
-// Free Image Generation Models
-const FREE_IMAGE_MODELS = [
-  "stabilityai/stable-diffusion-3.5-large:free",
-  "stabilityai/stable-diffusion-3-medium:free",
-  "stabilityai/stable-diffusion-xl-base-1.0:free",
-  "black-forest-labs/flux-1-dev:free",
-  "black-forest-labs/flux-1-schnell:free",
-];
 
 const SYSTEM_PROMPT = `You are Knyte, a smart, friendly AI assistant for Pi Gamma Phi Gamma Sigma (PGPGS) Roxas City Capiz Chapter - and a study buddy who helps fellow students with their schoolwork and assignments. You are fluent in English, Filipino, and Hiligaynon (Ilonggo).
 
@@ -376,7 +342,7 @@ async function callOpenRouter(
   chain: string[],
   modelIndex = 0,
 ): Promise<string> {
-  if (!OPENROUTER_API_KEY) {
+  if (!hasOpenRouterKey()) {
     throw new Error("OpenRouter API key is not configured.");
   }
 
@@ -411,6 +377,14 @@ async function callOpenRouter(
     await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_RETRY_DELAY_MS));
   }
 
+  // An invalid key can never succeed — stop immediately instead of
+  // retrying the whole model chain with the same doomed credentials.
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(
+      `OpenRouter rejected the API key (HTTP ${response.status}). Check OPENROUTER_API_KEY.`,
+    );
+  }
+
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");
     console.warn(`OpenRouter model ${model} failed: ${response.status} - ${errorText.slice(0, 200)}`);
@@ -435,15 +409,20 @@ async function callOpenRouter(
 }
 
 async function generateImage(prompt: string, modelIndex = 0): Promise<string> {
-  if (!OPENROUTER_API_KEY) {
+  if (!hasOpenRouterKey()) {
     throw new Error("OpenRouter API key is not configured.");
   }
 
-  if (modelIndex >= FREE_IMAGE_MODELS.length) {
+  const imageModels = (await getFreeModels()).image;
+  if (imageModels.length === 0) {
+    return "Image generation is temporarily unavailable — OpenRouter has no free image models right now. Please try again later.";
+  }
+
+  if (modelIndex >= imageModels.length) {
     throw new Error("All image models failed to respond.");
   }
 
-  const model = FREE_IMAGE_MODELS[modelIndex];
+  const model = imageModels[modelIndex];
 
   const response = await fetchWithTimeout(
     OPENROUTER_URL,
@@ -518,81 +497,24 @@ function isComplexQuestion(messages: ChatMessage[]): boolean {
   );
 }
 
-function buildModelChain(messages: ChatMessage[]): string[] {
-  return isComplexQuestion(messages) ? [REASONING_MODEL, ...FREE_MODELS] : FREE_MODELS;
-}
-
-function toGeminiContents(messages: ChatMessage[]) {
-  return messages.map((message) => ({
-    role: message.role === "assistant" ? "model" : "user",
-    parts: [{ text: message.content }],
-  }));
-}
-
-async function callGemini(messages: ChatMessage[], modelIndex = 0): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key is not configured.");
-  }
-
-  if (modelIndex >= GEMINI_MODELS.length) {
-    throw new Error("All Gemini models failed to respond.");
-  }
-
-  const model = GEMINI_MODELS[modelIndex];
-
-  const response = await fetchWithTimeout(
-    `${GEMINI_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: toGeminiContents(messages),
-        generationConfig: {
-          maxOutputTokens: 2048,
-          temperature: 0.7,
-        },
-      }),
-    },
-    REQUEST_TIMEOUT_MS,
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "Unknown error");
-    console.warn(`Gemini model ${model} failed: ${response.status} - ${errorText.slice(0, 200)}`);
-    return callGemini(messages, modelIndex + 1);
-  }
-
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts
-    ?.map((part: { text?: string }) => part.text ?? "")
-    .join("")
-    .trim();
-
-  if (text) return text;
-  return "I'm sorry, I couldn't generate a response.";
+async function buildModelChain(messages: ChatMessage[]): Promise<string[]> {
+  const { text } = await getFreeModels();
+  const chatModels = text.filter((id) => id !== REASONING_MODEL);
+  return isComplexQuestion(messages) ? [REASONING_MODEL, ...chatModels] : chatModels;
 }
 
 async function callLLM(messages: ChatMessage[]): Promise<string> {
-  // 1) Try the free OpenRouter models first.
-  if (OPENROUTER_API_KEY) {
+  if (hasOpenRouterKey()) {
     try {
-      return await callOpenRouter(messages, buildModelChain(messages));
+      return await callOpenRouter(messages, await buildModelChain(messages));
     } catch (error) {
       console.warn("OpenRouter free models are unavailable:", error);
     }
   }
 
-  // 2) Fall back to the free Google Gemini tier when it is configured.
-  if (GEMINI_API_KEY) {
-    try {
-      return await callGemini(messages);
-    } catch (error) {
-      console.warn("Gemini fallback failed:", error);
-    }
-  }
-
-  throw new Error("No AI provider is configured or available.");
+  throw new Error(
+    "OpenRouter is not configured. Set a real OPENROUTER_API_KEY (https://openrouter.ai/keys) in .env.local, then restart the dev server.",
+  );
 }
 
 export async function POST(request: Request) {
