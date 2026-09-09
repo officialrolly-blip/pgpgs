@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { asc, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { chapters, newsPosts, pgpmembers } from "@/db/schema";
-import { getFreeModels } from "@/lib/openrouter-models";
+import { FAST_TEXT_MODEL_SNAPSHOT, getFreeModels } from "@/lib/openrouter-models";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,8 +24,12 @@ function hasOpenRouterKey(): boolean {
 // of ALL OpenRouter free models comes live from @/lib/openrouter-models.
 const REASONING_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 
-const REQUEST_TIMEOUT_MS = 75_000;
-const RATE_LIMIT_RETRY_DELAY_MS = 1_200;
+// How long a single model attempt may take to produce its FIRST token.
+// Stalled free-tier models used to burn 75s+ before the chain moved on.
+const REQUEST_TIMEOUT_MS = 30_000;
+// Once tokens are flowing, allow long generations (complex homework
+// solutions) before cutting the stream off.
+const STREAM_TOTAL_TIMEOUT_MS = 120_000;
 
 async function fetchWithTimeout(
   url: string,
@@ -337,11 +341,20 @@ async function getRecentNews(): Promise<string> {
     .join("\n")}`;
 }
 
-async function callOpenRouter(
+function oneShotStream(text: string): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(streamController) {
+      streamController.enqueue(new TextEncoder().encode(text));
+      streamController.close();
+    },
+  });
+}
+
+async function callOpenRouterStream(
   messages: ChatMessage[],
   chain: string[],
   modelIndex = 0,
-): Promise<string> {
+): Promise<ReadableStream<Uint8Array>> {
   if (!hasOpenRouterKey()) {
     throw new Error("OpenRouter API key is not configured.");
   }
@@ -351,10 +364,15 @@ async function callOpenRouter(
   }
 
   const model = chain[modelIndex];
+  const controller = new AbortController();
+  // Bounds the wait for the model's FIRST token; once tokens are flowing the
+  // deadline is swapped for the generous total-stream cap, so long homework
+  // solutions survive but a stalled model can no longer burn 75s+.
+  let deadline = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  const response = await fetchWithTimeout(
-    OPENROUTER_URL,
-    {
+  let response: Response;
+  try {
+    response = await fetch(OPENROUTER_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -367,45 +385,150 @@ async function callOpenRouter(
         messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
         max_tokens: 2048,
         temperature: 0.7,
+        stream: true,
       }),
-    },
-    REQUEST_TIMEOUT_MS,
-  );
-
-  // Free endpoints are heavily rate-limited; give them a breather before falling through.
-  if (response.status === 429) {
-    await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_RETRY_DELAY_MS));
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(deadline);
+    console.warn(`OpenRouter model ${model} failed to connect:`, error);
+    return callOpenRouterStream(messages, chain, modelIndex + 1);
   }
 
   // An invalid key can never succeed — stop immediately instead of
   // retrying the whole model chain with the same doomed credentials.
   if (response.status === 401 || response.status === 403) {
+    clearTimeout(deadline);
+    const errorText = await response.text().catch(() => "");
+    let apiReason = "";
+    try {
+      apiReason = JSON.parse(errorText)?.error?.message ?? "";
+    } catch {
+      apiReason = "";
+    }
     throw new Error(
-      `OpenRouter rejected the API key (HTTP ${response.status}). Check OPENROUTER_API_KEY.`,
+      `OpenRouter rejected the API key (HTTP ${response.status}${apiReason ? `: ${apiReason}` : ""}). Check OPENROUTER_API_KEY.`,
     );
   }
 
   if (!response.ok) {
+    // Rate limits and capacity errors are per-model on OpenRouter's free
+    // tier — fall straight through to the next model instead of waiting.
+    clearTimeout(deadline);
     const errorText = await response.text().catch(() => "Unknown error");
     console.warn(`OpenRouter model ${model} failed: ${response.status} - ${errorText.slice(0, 200)}`);
-    return callOpenRouter(messages, chain, modelIndex + 1);
+    return callOpenRouterStream(messages, chain, modelIndex + 1);
   }
 
-  const data = await response.json();
-  if (data.error) {
-    console.warn(`OpenRouter model ${model} returned error:`, data.error);
-    return callOpenRouter(messages, chain, modelIndex + 1);
+  const reader = response.body?.getReader();
+  if (!reader) {
+    clearTimeout(deadline);
+    console.warn(`OpenRouter model ${model} returned no response body.`);
+    return callOpenRouterStream(messages, chain, modelIndex + 1);
   }
 
-  const choice = data.choices?.[0]?.message;
-  const content = typeof choice?.content === "string" ? choice.content.trim() : "";
-  if (content) return content;
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let sseBuffer = "";
+  let reasoningSoFar = "";
+  let sawDone = false;
 
-  // Some reasoning models (e.g. DeepSeek R1) return their final answer in `reasoning`.
-  const reasoning = typeof choice?.reasoning === "string" ? choice.reasoning.trim() : "";
-  if (reasoning) return reasoning;
+  // Consumes complete SSE lines from the buffer; returns any new answer text.
+  const parseSseLines = (): string => {
+    let content = "";
+    let boundary = sseBuffer.indexOf("\n");
+    while (boundary !== -1) {
+      const line = sseBuffer.slice(0, boundary).trim();
+      sseBuffer = sseBuffer.slice(boundary + 1);
+      boundary = sseBuffer.indexOf("\n");
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (payload === "[DONE]") {
+        sawDone = true;
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(payload) as {
+          choices?: Array<{ delta?: { content?: unknown; reasoning?: unknown } }>;
+        };
+        const delta = parsed.choices?.[0]?.delta;
+        if (typeof delta?.content === "string") content += delta.content;
+        if (typeof delta?.reasoning === "string") reasoningSoFar += delta.reasoning;
+      } catch {
+        // Ignore keep-alive comments and partial JSON payloads.
+      }
+    }
+    return content;
+  };
 
-  return "I'm sorry, I couldn't generate a response.";
+  // Phase 1: wait for the model's first token (bounded by REQUEST_TIMEOUT_MS).
+  // Nothing is sent to the client until real answer text exists, so a model
+  // that stalls or errors can still fall through to the next one.
+  let firstDelta = "";
+  try {
+    while (!firstDelta && !sawDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      sseBuffer += decoder.decode(value, { stream: true });
+      firstDelta = parseSseLines();
+    }
+  } catch (error) {
+    clearTimeout(deadline);
+    void reader.cancel().catch(() => {});
+    console.warn(`OpenRouter model ${model} stalled before its first token:`, error);
+    return callOpenRouterStream(messages, chain, modelIndex + 1);
+  }
+
+  clearTimeout(deadline);
+
+  if (!firstDelta) {
+    // Some reasoning models return their final answer in `reasoning` with an
+    // empty `content` — fall back to that instead of dropping the reply.
+    const reasoning = reasoningSoFar.trim();
+    if (reasoning) return oneShotStream(reasoning);
+    void reader.cancel().catch(() => {});
+    console.warn(`OpenRouter model ${model} returned an empty response.`);
+    return callOpenRouterStream(messages, chain, modelIndex + 1);
+  }
+
+  // Phase 2: tokens are flowing — commit to this model and stream it out.
+  deadline = setTimeout(() => controller.abort(), STREAM_TOTAL_TIMEOUT_MS);
+
+  return new ReadableStream<Uint8Array>({
+    start(streamController) {
+      const pump = async () => {
+        try {
+          streamController.enqueue(encoder.encode(firstDelta));
+          while (!sawDone) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            sseBuffer += decoder.decode(value, { stream: true });
+            const delta = parseSseLines();
+            if (delta) streamController.enqueue(encoder.encode(delta));
+          }
+          // Flush a final unterminated line (e.g. [DONE] without a newline).
+          if (sseBuffer.trim()) {
+            sseBuffer += "\n";
+            const tail = parseSseLines();
+            if (tail) streamController.enqueue(encoder.encode(tail));
+          }
+          streamController.close();
+        } catch {
+          streamController.enqueue(
+            encoder.encode("\n\n_The connection to the AI model was interrupted. Please try again._"),
+          );
+          streamController.close();
+        } finally {
+          clearTimeout(deadline);
+        }
+      };
+      void pump();
+    },
+    cancel() {
+      clearTimeout(deadline);
+      void reader.cancel().catch(() => {});
+    },
+  });
 }
 
 async function generateImage(prompt: string, modelIndex = 0): Promise<string> {
@@ -500,21 +623,41 @@ function isComplexQuestion(messages: ChatMessage[]): boolean {
 async function buildModelChain(messages: ChatMessage[]): Promise<string[]> {
   const { text } = await getFreeModels();
   const chatModels = text.filter((id) => id !== REASONING_MODEL);
-  return isComplexQuestion(messages) ? [REASONING_MODEL, ...chatModels] : chatModels;
-}
 
-async function callLLM(messages: ChatMessage[]): Promise<string> {
-  if (hasOpenRouterKey()) {
-    try {
-      return await callOpenRouter(messages, await buildModelChain(messages));
-    } catch (error) {
-      console.warn("OpenRouter free models are unavailable:", error);
-    }
+  if (isComplexQuestion(messages)) {
+    return [REASONING_MODEL, ...chatModels];
   }
 
-  throw new Error(
-    "OpenRouter is not configured. Set a real OPENROUTER_API_KEY (https://openrouter.ai/keys) in .env.local, then restart the dev server.",
-  );
+  // Casual questions start with the small, fast models for snappy replies,
+  // then fall back to the rest of the free chain (biggest models last).
+  const fast = FAST_TEXT_MODEL_SNAPSHOT.filter((id) => chatModels.includes(id));
+  const rest = chatModels.filter((id) => !fast.includes(id));
+  return [...fast, ...rest];
+}
+
+async function callLLM(messages: ChatMessage[]): Promise<Response> {
+  if (!hasOpenRouterKey()) {
+    throw new Error(
+      "OpenRouter is not configured. Set a real OPENROUTER_API_KEY (https://openrouter.ai/keys) in .env.local, then restart the dev server.",
+    );
+  }
+
+  try {
+    const stream = await callOpenRouterStream(messages, await buildModelChain(messages));
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  } catch (error) {
+    console.warn("OpenRouter free models are unavailable:", error);
+    // Re-throw the real failure (e.g. "OpenRouter rejected the API key
+    // (HTTP 401: User not found)") so the server log shows the actual
+    // cause instead of masking it as a missing-key problem.
+    throw error instanceof Error ? error : new Error(String(error));
+  }
 }
 
 export async function POST(request: Request) {
@@ -563,8 +706,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ response });
     }
 
-    const response = await callLLM(messages);
-    return NextResponse.json({ response });
+    // LLM answers stream as plain text so tokens appear as they are
+    // generated; DB-backed answers and errors above still return JSON.
+    return await callLLM(messages);
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json(

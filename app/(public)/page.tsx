@@ -175,7 +175,7 @@ export default async function Home() {
 
       <section className="bg-[var(--green-dark)] px-6 py-20 text-white sm:px-10 sm:py-24 lg:px-16" aria-labelledby="news-heading">
         <div className="mx-auto max-w-[1440px]">
-          <div className="flex flex-col justify-between gap-6 border-b border-white/20 pb-8 sm:flex-row sm:items-end">
+          <div className="flex flex-col justify-between gap-8 border-b border-white/20 pb-10 sm:flex-row sm:items-end">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--gold-light)]">
                 Stay connected
@@ -184,58 +184,76 @@ export default async function Home() {
                 News &amp; events.
               </h2>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-white/65 sm:text-right">
-              Keep up with the stories, service, and fellowship shaping our
-              chapter.
-            </p>
+            <div className="flex flex-col items-start gap-4 sm:items-end">
+              <p className="max-w-sm text-sm leading-6 text-white/65 sm:text-right">
+                Keep up with the stories, service, and fellowship shaping our
+                chapter.
+              </p>
+              <Link
+                href="/news"
+                className="group inline-flex items-center gap-3 text-sm font-semibold text-[var(--gold-light)] transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--gold-light)]"
+              >
+                View all news
+                <span aria-hidden="true" className="text-lg leading-none transition-transform duration-300 group-hover:translate-x-1.5">→</span>
+              </Link>
+            </div>
           </div>
 
-          <div className="grid gap-px bg-white/20 sm:grid-cols-3">
+          <div className="grid gap-px border border-white/15 bg-white/15 sm:grid-cols-3">
             {newsCards.map((item) => (
-              <article key={item.href} className="flex min-h-[310px] flex-col bg-[var(--green-dark)] p-7 sm:p-8">
-                {item.image ? (
-                  <div className="relative mb-6 aspect-[16/9] overflow-hidden border border-white/15">
-                    <Image
-                      src={item.image}
-                      alt=""
-                      fill
-                      sizes="(max-width: 640px) 100vw, 480px"
-                      className="object-cover"
-                    />
-                  </div>
-                ) : null}
-                <div className="flex items-center justify-between gap-4 text-[11px] font-semibold uppercase tracking-[0.18em]">
-                  <span className="text-[var(--gold-light)]">{item.category}</span>
-                  <span className="text-white/45">{item.date}</span>
-                </div>
-                <h3 className={`max-w-xs font-serif text-3xl font-semibold leading-tight text-white ${item.image ? "mt-5" : "mt-12"}`}>
-                  {item.title}
-                </h3>
-                <p className="mt-4 max-w-sm text-sm leading-6 text-white/65">
-                  {item.description}
-                </p>
+              <article key={item.href} className="bg-[var(--green-dark)]">
                 <Link
                   href={item.href}
-                  className="mt-auto inline-flex items-center gap-3 pt-8 text-sm font-semibold text-[var(--gold-light)] transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--gold-light)]"
+                  className="group relative flex h-full min-h-[340px] flex-col overflow-hidden p-7 transition-colors duration-300 hover:bg-[var(--green)] focus-visible:outline-2 focus-visible:outline-offset-[-6px] focus-visible:outline-[var(--gold-light)] sm:p-8"
                 >
-                  {item.action}
-                  <span aria-hidden="true" className="text-lg leading-none">→</span>
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-0 top-0 z-10 h-[3px] w-0 bg-[var(--gold)] transition-all duration-500 ease-out group-hover:w-full"
+                  />
+                  {item.image ? (
+                    <div className="relative mb-7 aspect-[16/9] overflow-hidden border border-white/15">
+                      <Image
+                        src={item.image}
+                        alt=""
+                        fill
+                        sizes="(max-width: 640px) 100vw, 480px"
+                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-0 bg-gradient-to-t from-[var(--green-dark)]/60 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                      />
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="inline-block bg-[var(--gold)]/15 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--gold-light)]">
+                      {item.category}
+                    </span>
+                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
+                      {item.date}
+                    </span>
+                  </div>
+                  <h3
+                    className={`max-w-xs font-serif text-3xl font-semibold leading-tight text-white transition-colors duration-300 group-hover:text-[var(--gold-light)] ${item.image ? "mt-5" : "mt-10"}`}
+                  >
+                    {item.title}
+                  </h3>
+                  <p className="mt-4 max-w-sm text-sm leading-6 text-white/65">
+                    {item.description}
+                  </p>
+                  <span className="mt-auto inline-flex items-center gap-3 pt-8 text-sm font-semibold text-[var(--gold-light)]">
+                    {item.action}
+                    <span
+                      aria-hidden="true"
+                      className="text-lg leading-none transition-transform duration-300 group-hover:translate-x-1.5"
+                    >
+                      →
+                    </span>
+                  </span>
                 </Link>
               </article>
             ))}
           </div>
-
-          {publishedPosts.length > 0 ? (
-            <div className="mt-10 text-center">
-              <Link
-                href="/news"
-                className="inline-flex items-center gap-3 border border-white/30 px-6 py-3.5 text-sm font-semibold tracking-wide text-white transition hover:border-[var(--gold-light)] hover:text-[var(--gold-light)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--gold-light)]"
-              >
-                View all news
-                <span aria-hidden="true" className="text-lg leading-none">→</span>
-              </Link>
-            </div>
-          ) : null}
         </div>
       </section>
 

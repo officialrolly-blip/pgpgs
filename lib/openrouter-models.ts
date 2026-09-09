@@ -46,6 +46,18 @@ export const FREE_TEXT_MODEL_SNAPSHOT: string[] = [
 
 const FREE_IMAGE_MODEL_SNAPSHOT: string[] = [];
 
+// Small / speed-optimized models, tried FIRST for casual questions. Huge
+// reasoning models can stall or think for minutes on free-tier capacity;
+// leading simple questions ("hi", "capital of France?") with these keeps
+// answers snappy. Complex questions skip straight to the reasoning model.
+export const FAST_TEXT_MODEL_SNAPSHOT: string[] = [
+  "liquid/lfm-2.5-2.6b:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "nex-agi/nex-n2.5-mini:free",
+  "thinkingmachines/inkling-small:free",
+  "google/gemma-4-26b-a4b-it:free",
+];
+
 type OpenRouterModel = {
   id: string;
   architecture?: { output_modalities?: string[] };

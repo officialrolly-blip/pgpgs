@@ -80,24 +80,67 @@ export default function KnyteChatbot() {
         }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") ?? "";
 
-      if (data.error) {
-        const errorMessage: Message = {
-          id: `error-${Date.now()}`,
-          role: "assistant",
-          content: data.error,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } else {
+      if (!contentType.includes("application/json") && response.body) {
+        // Streaming answer — show the text as it arrives, token by token.
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: data.response,
+          content: "",
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
+        setIsTyping(false);
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let streamed = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          streamed += decoder.decode(value, { stream: true });
+          const text = streamed;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessage.id ? { ...m, content: text } : m,
+            ),
+          );
+        }
+
+        if (!streamed.trim()) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessage.id
+                ? {
+                    ...m,
+                    content:
+                      "I couldn't generate a response just now. Please try again.",
+                  }
+                : m,
+            ),
+          );
+        }
+      } else {
+        const data = await response.json();
+
+        if (data.error) {
+          const errorMessage: Message = {
+            id: `error-${Date.now()}`,
+            role: "assistant",
+            content: data.error,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        } else {
+          const assistantMessage: Message = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: data.response,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, assistantMessage]);
+        }
       }
     } catch {
       const errorMessage: Message = {

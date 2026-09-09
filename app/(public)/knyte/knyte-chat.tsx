@@ -378,19 +378,11 @@ export default function KnyteChat() {
           }),
         });
 
-        const data = await response.json();
+        const contentType = response.headers.get("content-type") ?? "";
 
-        if (data.error) {
-          const errorMessage = createErrorMessage(data.error);
-          setSessions((prev) =>
-            prev.map((s) =>
-              s.id === activeSessionId
-                ? { ...s, messages: [...s.messages, errorMessage] }
-                : s,
-            ),
-          );
-        } else {
-          const assistantMessage = createAssistantMessage(data.response);
+        if (!contentType.includes("application/json") && response.body) {
+          // Streaming answer — show the text as it arrives, token by token.
+          const assistantMessage = createAssistantMessage("");
           setSessions((prev) =>
             prev.map((s) =>
               s.id === activeSessionId
@@ -398,6 +390,67 @@ export default function KnyteChat() {
                 : s,
             ),
           );
+          setIsTyping(false);
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let streamed = "";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            streamed += decoder.decode(value, { stream: true });
+            const text = streamed;
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === activeSessionId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) =>
+                        m.id === assistantMessage.id ? { ...m, content: text } : m,
+                      ),
+                    }
+                  : s,
+              ),
+            );
+          }
+
+          if (!streamed.trim()) {
+            const text = "I couldn't generate a response just now. Please try again.";
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === activeSessionId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) =>
+                        m.id === assistantMessage.id ? { ...m, content: text } : m,
+                      ),
+                    }
+                  : s,
+              ),
+            );
+          }
+        } else {
+          const data = await response.json();
+
+          if (data.error) {
+            const errorMessage = createErrorMessage(data.error);
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === activeSessionId
+                  ? { ...s, messages: [...s.messages, errorMessage] }
+                  : s,
+              ),
+            );
+          } else {
+            const assistantMessage = createAssistantMessage(data.response);
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === activeSessionId
+                  ? { ...s, messages: [...s.messages, assistantMessage] }
+                  : s,
+              ),
+            );
+          }
         }
       } catch {
         const errorMessage = createErrorMessage(
