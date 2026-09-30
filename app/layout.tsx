@@ -44,6 +44,9 @@ export const metadata: Metadata = {
   creator: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter",
   publisher: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter",
   category: "organization",
+  verification: {
+    google: "-4thu5lCQlbw_z6BLhdiSl3hGMIOYZx8E7bDsn4wbkU",
+  },
   icons: "/favicon.ico",
   alternates: {
     canonical: "/",
