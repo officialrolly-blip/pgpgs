@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import PageShell from "@/components/page-shell";
 import ChapterRegistrationForm from "../chapter-registration-form";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Register a Chapter",
-};
+  description:
+    "Register a new Pi Gamma Phi Gamma Sigma chapter. Chapter organizers can submit their chapter's details for review by the Capiz Provincial Council.",
+  path: "/about/pgpgs-across-capiz/register",
+});
 
 export default function RegisterChapterPage() {
   return (

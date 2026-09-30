@@ -7,11 +7,16 @@ import { db } from "@/db";
 import { chapters, pgpmembers } from "@/db/schema";
 import PageShell from "@/components/page-shell";
 
-export const metadata: Metadata = {
-  title: "PGPGS Across Capiz",
-};
+import { pageMetadata } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export const metadata: Metadata = pageMetadata({
+  title: "PGPGS Across Capiz",
+  description:
+    "Discover the Pi Gamma Phi Gamma Sigma chapters across Capiz, Philippines, including each chapter's address, organizer, and elected officers.",
+  path: "/about/pgpgs-across-capiz",
+});
 
 const chapterPresident = alias(pgpmembers, "chapter_president");
 const chapterVicePresident = alias(pgpmembers, "chapter_vice_president");

@@ -1,5 +1,16 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
+import JsonLd from "@/components/json-ld";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_KEYWORDS,
+  DEFAULT_OG_IMAGE,
+  DEFAULT_TITLE,
+  OG_IMAGE_PATH,
+  getSiteUrl,
+  organizationJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,26 +30,13 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-  ),
+  metadataBase: new URL(getSiteUrl()),
   title: {
-    default: "Pi Gamma Phi Gamma Sigma | Roxas City Capiz Chapter",
+    default: DEFAULT_TITLE,
     template: "%s | PGPGS Roxas City",
   },
-  description:
-    "Official website of Pi Gamma Phi Gamma Sigma, Roxas City Capiz Chapter: a brotherhood and sisterhood founded on unity, service, leadership, and moral excellence. Join our community service initiatives and discover our rich history.",
-  keywords: [
-    "Pi Gamma Phi",
-    "Gamma Sigma",
-    "PGPGS Roxas City",
-    "Roxas City Capiz Chapter",
-    "Pi Gamma Phi history",
-    "fraternity and sorority Philippines",
-    "community service Roxas City",
-    "brotherhood sisterhood Capiz",
-    "PGPGS membership",
-  ],
+  description: DEFAULT_DESCRIPTION,
+  keywords: DEFAULT_KEYWORDS,
   applicationName: "PGPGS Roxas City",
   authors: [{ name: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter" }],
   creator: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter",
@@ -48,9 +46,6 @@ export const metadata: Metadata = {
     google: "-4thu5lCQlbw_z6BLhdiSl3hGMIOYZx8E7bDsn4wbkU",
   },
   icons: "/favicon.ico",
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     locale: "en_PH",
@@ -58,21 +53,14 @@ export const metadata: Metadata = {
     title: "Pi Gamma Phi Gamma Sigma | Roxas City Capiz Chapter",
     description:
       "Official website of Pi Gamma Phi Gamma Sigma, Roxas City Capiz Chapter. A brotherhood and sisterhood founded on unity, service, leadership, and moral excellence. Discover our history, community service, officials, and alumni.",
-    images: [
-      {
-        url: "/PI-GAMMA-PHI.png",
-        width: 1200,
-        height: 630,
-        alt: "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter Logo",
-      },
-    ],
+    images: [DEFAULT_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pi Gamma Phi Gamma Sigma | Roxas City Capiz Chapter",
+    title: DEFAULT_TITLE,
     description:
       "A brotherhood and sisterhood founded on unity, service, leadership, and moral excellence. Discover our history, community service, and membership.",
-    images: ["/PI-GAMMA-PHI.png"],
+    images: [OG_IMAGE_PATH],
   },
   robots: {
     index: true,
@@ -98,6 +86,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+        <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
         {children}
       </body>
     </html>

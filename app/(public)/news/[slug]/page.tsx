@@ -1,24 +1,22 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { newsPosts } from "@/db/schema";
 import PageShell from "@/components/page-shell";
+import JsonLd from "@/components/json-ld";
+import { articleJsonLd, breadcrumbJsonLd, pageMetadata } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+// Cache each article for five minutes so Googlebot always receives fully
+// server-rendered HTML (title, H1, body, images, structured data) instead of a
+// JavaScript "Loading…" state. Publishing invalidates this via revalidatePath.
+export const revalidate = 300;
 
-function formatLongDate(date: Date) {
-  return date.toLocaleDateString("en-PH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-export default async function NewsPostPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-
+// Wrapped in React `cache` so generateMetadata and the page share one query.
+const getPost = cache(async (slug: string) => {
   const [post] = await db
     .select({
       title: newsPosts.title,
@@ -35,6 +33,58 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
     .where(eq(newsPosts.slug, slug))
     .limit(1);
 
+  return post ?? null;
+});
+
+function metaDescription(post: { summary: string; body: string }): string {
+  const base = post.summary?.trim() || post.body;
+  const collapsed = base.replace(/\s+/g, " ").trim();
+  if (collapsed.length <= 155) return collapsed;
+  return `${collapsed.slice(0, 152).replace(/\s+\S*$/, "")}…`;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPost(slug);
+
+  if (!post || !post.published) {
+    return {
+      title: "Article not found",
+      robots: { index: false, follow: true },
+    };
+  }
+
+  const publishedIso = (post.publishedAt ?? post.createdAt).toISOString();
+
+  return pageMetadata({
+    title: post.title,
+    description: metaDescription(post),
+    path: `/news/${slug}`,
+    type: "article",
+    image: post.coverImageUrl ?? undefined,
+    publishedTime: publishedIso,
+    modifiedTime: post.createdAt.toISOString(),
+    authors: post.authorName ? [post.authorName] : undefined,
+  });
+}
+
+
+function formatLongDate(date: Date) {
+  return date.toLocaleDateString("en-PH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export default async function NewsPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = await getPost(slug);
+
   if (!post || !post.published) notFound();
 
   const paragraphs = post.body
@@ -45,6 +95,24 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <PageShell title={post.title}>
+      <JsonLd
+        data={[
+          articleJsonLd({
+            title: post.title,
+            description: post.summary,
+            path: `/news/${slug}`,
+            image: post.coverImageUrl ?? undefined,
+            publishedTime: (post.publishedAt ?? post.createdAt).toISOString(),
+            modifiedTime: post.createdAt.toISOString(),
+            authorName: post.authorName ?? undefined,
+          }),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "News & Events", path: "/news" },
+            { name: post.title, path: `/news/${slug}` },
+          ]),
+        ]}
+      />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold uppercase tracking-[0.16em] text-black/45">
         <span className="text-[var(--green)]">{post.category}</span>
         <span aria-hidden="true" className="text-black/20">

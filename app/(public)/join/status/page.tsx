@@ -6,7 +6,10 @@ import { registrationLogoutAction } from "@/lib/actions/registration-status-acti
 import { getRegistrationStatus } from "@/lib/neophyte-auth";
 import { NEOPHYTE_STATUSES, NEOPHYTE_STATUS_LABELS } from "@/lib/member-constants";
 
-export const metadata: Metadata = { title: "Check Application Status" };
+export const metadata: Metadata = {
+  title: "Check Application Status",
+  robots: { index: false, follow: false },
+};
 export const dynamic = "force-dynamic";
 
 const stages = [

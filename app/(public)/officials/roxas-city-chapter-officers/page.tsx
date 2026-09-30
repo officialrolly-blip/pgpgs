@@ -4,12 +4,16 @@ import PageShell from "@/components/page-shell";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const revalidate = 300;
+
+export const metadata: Metadata = pageMetadata({
   title: "PGPGS Roxas City Capiz Chapter Officers",
-};
-
-export const dynamic = "force-dynamic";
+  description:
+    "Meet the elected officers of the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter — President, Vice Presidents, Treasurer, Secretary, Auditor, and Master and Lady Initiators.",
+  path: "/officials/roxas-city-chapter-officers",
+});
 
 const officerPositions = [
   "President",

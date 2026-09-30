@@ -6,7 +6,10 @@ import { pgpmembers } from "@/db/schema";
 import { getRegistrationStatus } from "@/lib/neophyte-auth";
 import PublicPrintButton from "@/components/public-print-button";
 
-export const metadata: Metadata = { title: "Certificate of Confirmation" };
+export const metadata: Metadata = {
+  title: "Certificate of Confirmation",
+  robots: { index: false, follow: false },
+};
 export const dynamic = "force-dynamic";
 
 export default async function PublicCertificatePage() {

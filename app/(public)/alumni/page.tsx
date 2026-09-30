@@ -4,9 +4,16 @@ import PageShell from "@/components/page-shell";
 import { asc, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Our Alumni" };
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export const metadata: Metadata = pageMetadata({
+  title: "PGPGS Alumni – Roxas City Capiz Chapter",
+  description:
+    "The alumni directory of the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter — a lasting record honoring the brothers and sisters whose membership and connection to the brotherhood continue through every generation.",
+  path: "/alumni",
+});
 
 const VerifiedIcon = () => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-3 w-3">
@@ -50,7 +57,7 @@ export default async function AlumniPage() {
     .orderBy(asc(pgpmembers.dateSurvived), asc(pgpmembers.createdAt));
 
   return (
-    <PageShell title="Our Alumni">
+    <PageShell title="PGPGS Alumni – Roxas City Capiz Chapter">
       <div className="mb-10 max-w-2xl">
         <p className="text-base leading-7">
           This directory honors the alumni of the PGPGS Roxas City Capiz

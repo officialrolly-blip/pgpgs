@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import HeroSlider from "@/components/hero-slider";
 import OfficerMarquee, { type HomepageOfficer } from "@/components/officer-marquee";
 import ContactForm from "@/components/contact-form";
@@ -6,6 +7,7 @@ import Link from "next/link";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { newsPosts, pgpmembers } from "@/db/schema";
+import { DEFAULT_DESCRIPTION, pageMetadata } from "@/lib/seo";
 
 type NewsCard = {
   date: string;
@@ -48,7 +50,14 @@ const newsFallback: NewsCard[] = [
   },
 ];
 
-export const dynamic = "force-dynamic";
+// Homepage: statically rendered and revalidated every 5 minutes (and on-demand
+// when the admin publishes news) so Googlebot receives the full HTML.
+export const revalidate = 300;
+
+export const metadata: Metadata = pageMetadata({
+  description: DEFAULT_DESCRIPTION,
+  path: "/",
+});
 
 function formatShortDate(date: Date) {
   return date.toLocaleDateString("en-PH", {

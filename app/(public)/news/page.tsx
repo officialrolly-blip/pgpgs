@@ -5,9 +5,17 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { newsPosts } from "@/db/schema";
 import PageShell from "@/components/page-shell";
+import JsonLd from "@/components/json-ld";
+import { breadcrumbJsonLd, pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "News & Events" };
-export const dynamic = "force-dynamic";
+export const revalidate = 120;
+
+export const metadata: Metadata = pageMetadata({
+  title: "News & Events",
+  description:
+    "The latest news, announcements, and events from the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter — community service, fellowship, and chapter milestones.",
+  path: "/news",
+});
 
 function formatShortDate(date: Date) {
   return date.toLocaleDateString("en-PH", {
@@ -35,6 +43,12 @@ export default async function NewsIndexPage() {
 
   return (
     <PageShell title="News & Events">
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "News & Events", path: "/news" },
+        ])}
+      />
       <p className="mb-10 max-w-2xl text-base leading-7 text-justify">
         Keep up with the stories, service, and fellowship shaping the Pi Gamma Phi
         Gamma Sigma Roxas City Capiz Chapter.

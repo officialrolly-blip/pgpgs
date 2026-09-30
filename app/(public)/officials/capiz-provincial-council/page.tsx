@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import PageShell from "@/components/page-shell";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Capiz Provincial Council" };
+export const metadata: Metadata = pageMetadata({
+  title: "Capiz Provincial Council",
+  description:
+    "Meet the officers of the Pi Gamma Phi Gamma Sigma Capiz Provincial Council serving the chapters across the province of Capiz, Philippines.",
+  path: "/officials/capiz-provincial-council",
+});
 
 const councilMembers = [
   {

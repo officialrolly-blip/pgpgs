@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import PageShell from "@/components/page-shell";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Pi Gamma Phi Gamma Sigma History",
   description:
     "Learn the history of Pi Gamma Phi 1975 Gamma Sigma, founded by Ysmael Ulanday, Enrique Gomez, and Henry Pesimo, and discover its principles of Lux, Bonitas, and Unitas.",
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
     "Pi Gamma Phi founding fathers",
     "Lux Bonitas Unitas",
   ],
-};
+  path: "/about/history",
+});
 
 export default function Page() {
   return (

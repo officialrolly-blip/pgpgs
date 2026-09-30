@@ -5,8 +5,16 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 
-export const metadata: Metadata = { title: "Former Chapter Vice President" };
-export const dynamic = "force-dynamic";
+import { pageMetadata } from "@/lib/seo";
+
+export const revalidate = 300;
+
+export const metadata: Metadata = pageMetadata({
+  title: "Former Chapter Vice President",
+  description:
+    "Honoring the former Chapter Vice Presidents of the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter and their contributions to the brotherhood and the community.",
+  path: "/officials/former-chapter-vice-president",
+});
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";

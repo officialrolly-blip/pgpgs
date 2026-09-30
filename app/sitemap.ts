@@ -2,14 +2,9 @@ import type { MetadataRoute } from "next";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { newsPosts } from "@/db/schema";
+import { getSiteUrl } from "@/lib/seo";
 
-function getSiteUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
-  if (configured) return configured;
-  const vercelUrl = process.env.VERCEL_URL?.trim().replace(/\/+$/, "");
-  if (vercelUrl) return `https://${vercelUrl}`;
-  return "https://pgpgsroxascity.com";
-}
+export const revalidate = 3600;
 
 type StaticRoute = {
   path: string;
@@ -18,8 +13,9 @@ type StaticRoute = {
 };
 
 // Every indexable public page. Member/private flows (/join/status, /member-id,
-// /members/*, /verify/*, /knyte, /admin/*) are intentionally excluded so Google
-// doesn't waste crawl budget or index gated content.
+// /members/*, /verify/*, /admin/*) are intentionally excluded. Placeholder
+// pages that still render "coming soon" copy are also excluded, because they
+// carry a noindex robots tag until real content is published.
 const STATIC_ROUTES: StaticRoute[] = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/news", changeFrequency: "daily", priority: 0.9 },
@@ -27,21 +23,16 @@ const STATIC_ROUTES: StaticRoute[] = [
   { path: "/alumni", changeFrequency: "monthly", priority: 0.8 },
   { path: "/message-of-chapter-president", changeFrequency: "monthly", priority: 0.8 },
   { path: "/about/history", changeFrequency: "monthly", priority: 0.8 },
-  { path: "/about/founding", changeFrequency: "monthly", priority: 0.8 },
-  { path: "/about/founding-fathers", changeFrequency: "monthly", priority: 0.8 },
   { path: "/about/our-members", changeFrequency: "weekly", priority: 0.8 },
   { path: "/about/pgpgs-across-capiz", changeFrequency: "monthly", priority: 0.7 },
   { path: "/about/pgpgs-across-capiz/register", changeFrequency: "monthly", priority: 0.6 },
-  { path: "/community/blood-letting", changeFrequency: "monthly", priority: 0.7 },
-  { path: "/community/clean-up-drives", changeFrequency: "monthly", priority: 0.7 },
-  { path: "/community/feeding-program", changeFrequency: "monthly", priority: 0.7 },
-  { path: "/community/tree-planting", changeFrequency: "monthly", priority: 0.7 },
   { path: "/officials/capiz-provincial-council", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/officials/roxas-city-chapter-officers", changeFrequency: "weekly", priority: 0.8 },
   { path: "/officials/former-chapter-president", changeFrequency: "monthly", priority: 0.6 },
   { path: "/officials/former-chapter-vice-president", changeFrequency: "monthly", priority: 0.6 },
   { path: "/officials/former-grand-knights", changeFrequency: "monthly", priority: 0.6 },
   { path: "/officials/former-master-initiator", changeFrequency: "monthly", priority: 0.6 },
-  { path: "/officials/roxas-city-chapter-officers", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/knyte", changeFrequency: "monthly", priority: 0.5 },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

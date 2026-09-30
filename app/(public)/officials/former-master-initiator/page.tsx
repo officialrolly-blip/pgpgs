@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import PageShell from "@/components/page-shell";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Former Master Initiator" };
+export const metadata: Metadata = pageMetadata({
+  title: "Former Master Initiator",
+  description:
+    "The former Master Initiators of the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter and the members they helped guide into the brotherhood.",
+  path: "/officials/former-master-initiator",
+});
 
 const formerInitiators = [
   {

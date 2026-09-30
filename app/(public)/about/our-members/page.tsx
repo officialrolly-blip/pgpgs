@@ -4,9 +4,16 @@ import PageShell from "@/components/page-shell";
 import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Our Members" };
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export const metadata: Metadata = pageMetadata({
+  title: "Our Members",
+  description:
+    "The member directory of the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter, honoring every registered brother and sister and their commitment to fellowship, leadership, and service.",
+  path: "/about/our-members",
+});
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";

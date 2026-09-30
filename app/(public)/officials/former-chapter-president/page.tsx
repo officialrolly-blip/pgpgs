@@ -4,9 +4,16 @@ import PageShell from "@/components/page-shell";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Former Chapter President" };
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export const metadata: Metadata = pageMetadata({
+  title: "Former Chapter President",
+  description:
+    "Honoring the former Chapter Presidents of the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter and the legacy of leadership they entrusted to the generations that followed.",
+  path: "/officials/former-chapter-president",
+});
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";

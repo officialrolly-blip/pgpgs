@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import PageShell from "@/components/page-shell";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Former Grand Knights" };
+export const metadata: Metadata = pageMetadata({
+  title: "Former Grand Knights",
+  description:
+    "The former Grand Knights of the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter and their years of service to the brotherhood.",
+  path: "/officials/former-grand-knights",
+});
 
 const formerGrandKnights = [
   {

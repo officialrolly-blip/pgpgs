@@ -8,7 +8,10 @@ import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import { PublicIdCardFront, PublicIdCardBack, type PublicIdMember } from "@/components/public-id-card";
 
-export const metadata: Metadata = { title: "Verify Membership ID" };
+export const metadata: Metadata = {
+  title: "Verify Membership ID",
+  robots: { index: false, follow: false },
+};
 export const dynamic = "force-dynamic";
 
 export default async function VerifyMemberPage({

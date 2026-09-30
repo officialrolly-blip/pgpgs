@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import PageShell from "@/components/page-shell";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Message of the Chapter President",
-};
+  description:
+    "Read the message of the newly elected Chapter President of the Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter on fellowship, service, and responsible leadership.",
+  path: "/message-of-chapter-president",
+});
 
 export default function ChapterPresidentMessagePage() {
   return (
