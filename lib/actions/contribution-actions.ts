@@ -11,7 +11,6 @@ import {
 import { requireAdmin } from "@/lib/auth";
 import {
   CONTRIBUTION_PAYMENT_METHODS,
-  DEFAULT_DUES_DUE_DAY,
   DEFAULT_MONTHLY_DUES_CENTS,
   billingMonthLabel,
   currentBillingMonth,
@@ -196,6 +195,4 @@ export async function deleteContributionAction(formData: FormData): Promise<void
   await db.delete(monthlyContributions).where(eq(monthlyContributions.id, id));
   revalidateContributionPaths();
 }
-
-export { DEFAULT_DUES_DUE_DAY, DEFAULT_MONTHLY_DUES_CENTS };
 
