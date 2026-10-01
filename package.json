@@ -22,6 +22,7 @@
     "db:migrate-contact-messages": "tsx scripts/apply-contact-messages-migration.ts",
     "db:migrate-contributions": "tsx scripts/apply-contributions-migration.ts",
     "db:migrate-officers": "tsx scripts/apply-officer-roles-migration.ts",
+    "db:backfill-officer-chapters": "tsx scripts/backfill-officer-chapters.ts",
     "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
