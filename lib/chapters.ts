@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq, or, sql, type SQL } from "drizzle-orm";
+import { asc, eq, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { chapters } from "@/db/schema";
 
@@ -49,8 +49,10 @@ export function normalizeChapterName(value: string | null | undefined): string {
 
 /**
  * SQL condition matching a `member_chapter`-style column against a chapter
- * name, tolerant of the missing organisation prefix and casing. Returns
- * `undefined` when no chapter is given so callers can skip the filter.
+ * name. Both sides are normalised: the column has the `Pi Gamma Phi Gamma
+ * Sigma` prefix stripped and is lower-cased in SQL, so legacy short-form rows
+ * ("Roxas City Capiz Chapter") and canonical long-form rows both match.
+ * Returns `undefined` when no chapter is given so callers can skip the filter.
  */
 export function chapterMatches(
   column: SQL | unknown,
@@ -58,9 +60,9 @@ export function chapterMatches(
 ): SQL | undefined {
   const target = normalizeChapterName(chapterName);
   if (!target) return undefined;
-  const columnRef = column as SQL;
-  return or(
-    sql`lower(${columnRef}) = ${target}`,
-    sql`lower(${columnRef}) like ${`${target.replace(/[%_]/g, "")}%`}`,
-  )!;
+  return sql`regexp_replace(
+    lower(${column as SQL}),
+    '^pi[[:space:]]+gamma[[:space:]]+phi[[:space:]]+gamma[[:space:]]+sigma[[:space:]]+',
+    ''
+  ) = ${target}`;
 }
