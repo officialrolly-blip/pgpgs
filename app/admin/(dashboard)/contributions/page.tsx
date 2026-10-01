@@ -48,16 +48,18 @@ export default async function AdminContributionsPage(props: {
       <PageHeading
         title="Monthly Contributions"
         description={`Chapter dues ledger — ${formatCentavos(amount)} per member, due every ${dueDay}${sfx(dueDay)} of the month. Showing ${billingMonthLabel(month)}.`}
-        actions={<Link href="/admin/contributions/receipts" className="a-btn a-btn-secondary">Receipts &amp; arrears →</Link>}
+        actions={
+          <>
+            <Link href="/admin/contributions/receipts" className="a-btn a-btn-secondary">Receipts &amp; arrears →</Link>
+            {ready ? <ContributionPaymentForm defaultBillingMonth={month} defaultAmountCents={amount} /> : null}
+          </>
+        }
       />
       {!ready ? <MigrationNotice /> : null}
       <SummaryRow month={month} ready={ready} />
-      <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="min-w-0 space-y-5">
-          <ContributionLedgerSection month={month} q={q} status={status} page={page} ready={ready} />
-          {ready ? <ContributionSettingsForms monthlyAmountCents={amount} dueDay={dueDay} currentMonth={month} /> : null}
-        </div>
-        {ready ? <ContributionPaymentForm defaultBillingMonth={month} defaultAmountCents={amount} /> : null}
+      <div className="mt-5 space-y-5">
+        <ContributionLedgerSection month={month} q={q} status={status} page={page} ready={ready} />
+        {ready ? <ContributionSettingsForms monthlyAmountCents={amount} dueDay={dueDay} currentMonth={month} /> : null}
       </div>
     </>
   );
