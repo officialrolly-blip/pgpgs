@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
+import Link from "next/link";
 import MemberCombobox, {
   type MemberOption,
 } from "@/components/admin/member-combobox";
@@ -16,39 +17,13 @@ import {
   formatCentavos,
 } from "@/lib/contributions";
 
-export default function ContributionPaymentForm({
+/** Inline (non-modal) dues entry form used by the Record a Payment page. */
+export default function RecordPaymentForm({
   defaultBillingMonth,
   defaultAmountCents,
 }: {
   defaultBillingMonth: string;
   defaultAmountCents: number;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <button type="button" className="a-btn a-btn-gold" onClick={() => setOpen(true)}>
-        + Record a payment
-      </button>
-      {open ? (
-        <PaymentDialog
-          defaultBillingMonth={defaultBillingMonth}
-          defaultAmountCents={defaultAmountCents}
-          onClose={() => setOpen(false)}
-        />
-      ) : null}
-    </>
-  );
-}
-
-function PaymentDialog({
-  defaultBillingMonth,
-  defaultAmountCents,
-  onClose,
-}: {
-  defaultBillingMonth: string;
-  defaultAmountCents: number;
-  onClose: () => void;
 }) {
   const [member, setMember] = useState<MemberOption | null>(null);
   const [state, action, pending] = useActionState<
@@ -56,46 +31,19 @@ function PaymentDialog({
     FormData
   >(recordContributionPaymentAction, {});
 
-  // Escape closes the dialog.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/55 p-4 backdrop-blur-sm"
-      role="presentation"
-      onMouseDown={onClose}
+    <section
+      className="a-card max-w-3xl p-6 shadow-[var(--a-shadow-md)] sm:p-7"
+      aria-labelledby="record-payment-heading"
     >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="record-payment-heading"
-            className="a-card max-h-[90vh] w-full max-w-xl overflow-y-auto p-6 shadow-[var(--a-shadow-md)] sm:p-7"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 id="record-payment-heading" className="a-card-title">Record a payment</h2>
-                <p className="mt-1.5 text-sm leading-6 text-a-muted">
-                  Log cash or e-wallet dues for any member and month. Partial payments
-                  keep the remaining balance as arrears.
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={onClose}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-a-border text-lg leading-none text-a-muted transition hover:bg-a-bg hover:text-a-text"
-              >
-                ×
-              </button>
-            </div>
-            <form action={action} className="mt-5 space-y-4">
+      <h2 id="record-payment-heading" className="a-card-title">
+        Payment details
+      </h2>
+      <p className="mt-1.5 text-sm leading-6 text-a-muted">
+        Log cash or e-wallet dues for any member and month. Partial payments
+        keep the remaining balance as arrears.
+      </p>
+      <form action={action} className="mt-5 space-y-4">
         <input type="hidden" name="memberPk" value={member?.id ?? ""} />
         <MemberCombobox label="Member" selected={member} onSelect={setMember} />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -158,22 +106,21 @@ function PaymentDialog({
           <input type="checkbox" name="waived" className="h-4 w-4 accent-[#b54708]" />
           Waive this month (excused — clears the bill)
         </label>
-              {state.error ? <p className="text-xs font-medium text-a-danger" role="alert">{state.error}</p> : null}
-              {state.success ? <p className="text-xs font-medium text-a-success" role="status">{state.success}</p> : null}
-              <div className="flex flex-col-reverse gap-2 border-t border-a-border-soft pt-4 sm:flex-row sm:justify-end">
-                <button type="button" onClick={onClose} className="a-btn a-btn-secondary">
-                  {state.success ? "Done" : "Cancel"}
-                </button>
-                <button type="submit" disabled={pending || !member} className="a-btn a-btn-gold">
-                  {pending ? "Recording…" : member ? "Record payment" : "Select a member first"}
-                </button>
-              </div>
-            </form>
-            <p className="mt-4 text-xs leading-5 text-a-muted">
-              Recording the full amount marks the bill Paid and stamps a receipt date.
-              Anything less stays Partial so arrears carry forward.
-            </p>
-          </div>
-    </div>
+        {state.error ? <p className="text-xs font-medium text-a-danger" role="alert">{state.error}</p> : null}
+        {state.success ? <p className="text-xs font-medium text-a-success" role="status">{state.success}</p> : null}
+        <div className="flex flex-col-reverse gap-2 border-t border-a-border-soft pt-4 sm:flex-row sm:justify-end">
+          <Link href="/admin/contributions" className="a-btn a-btn-secondary">
+            Back to ledger
+          </Link>
+          <button type="submit" disabled={pending || !member} className="a-btn a-btn-gold">
+            {pending ? "Recording…" : member ? "Record payment" : "Select a member first"}
+          </button>
+        </div>
+      </form>
+      <p className="mt-4 text-xs leading-5 text-a-muted">
+        Recording the full amount marks the bill Paid and stamps a receipt date.
+        Anything less stays Partial so arrears carry forward.
+      </p>
+    </section>
   );
 }

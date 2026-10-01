@@ -3,7 +3,6 @@ import Link from "next/link";
 import { db } from "@/db";
 import { contributionSettings } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
-import ContributionPaymentForm from "@/components/admin/contribution-payment-form";
 import ContributionSettingsForms from "@/components/admin/contribution-settings-forms";
 import { requireAdmin } from "@/lib/auth";
 import {
@@ -51,7 +50,14 @@ export default async function AdminContributionsPage(props: {
         actions={
           <>
             <Link href="/admin/contributions/receipts" className="a-btn a-btn-secondary">Receipts &amp; arrears →</Link>
-            {ready ? <ContributionPaymentForm defaultBillingMonth={month} defaultAmountCents={amount} /> : null}
+            {ready ? (
+              <Link
+                href={`/admin/contributions/record-payment?month=${encodeURIComponent(month)}`}
+                className="a-btn a-btn-gold"
+              >
+                + Record a payment
+              </Link>
+            ) : null}
           </>
         }
       />
