@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { and, count, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { adminUsers } from "@/db/schema";
+import { adminUsers, pgpmembers } from "@/db/schema";
 import { hashPassword, isPasswordStrongEnough, requireSuperadmin } from "@/lib/auth";
 import { getAllChapterNames } from "@/lib/chapters";
 import {
@@ -24,15 +24,14 @@ export async function createAdminUserAction(
   await requireSuperadmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const name = String(formData.get("name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const role = String(formData.get("role") ?? "admin");
+  const memberId = String(formData.get("memberId") ?? "").trim();
   const assignedChapter = String(formData.get("assignedChapter") ?? "").trim();
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: "Please enter a valid email address." };
   }
-  if (!name) return { error: "Please enter a display name." };
   if (!isPasswordStrongEnough(password)) {
     return { error: "Password must be at least 12 characters long." };
   }
@@ -41,14 +40,46 @@ export async function createAdminUserAction(
     return { error: "Please choose a valid role." };
   }
 
+  // The display name and chapter are resolved from the member record itself so
+  // they cannot be forged by editing the form payload.
+  if (!memberId) {
+    return { error: "Please select the member this account belongs to." };
+  }
+  const [officerMember] = await db
+    .select({
+      firstName: pgpmembers.firstName,
+      middleInitial: pgpmembers.middleInitial,
+      lastName: pgpmembers.lastName,
+      memberChapter: pgpmembers.memberChapter,
+    })
+    .from(pgpmembers)
+    .where(eq(pgpmembers.id, memberId))
+    .limit(1);
+  if (!officerMember) {
+    return { error: "That member could not be found. Please search again." };
+  }
+  const name = [
+    officerMember.firstName,
+    officerMember.middleInitial,
+    officerMember.lastName,
+  ]
+    .filter((part) => part && String(part).trim())
+    .join(" ")
+    .trim();
+  if (!name) {
+    return { error: "That member record has no name to use." };
+  }
+
   let chapterScope: string | null = null;
   if (isChapterScopedRole(role)) {
-    if (!assignedChapter) {
+    const validChapters = await getAllChapterNames();
+    // Fall back to the member's own chapter when the form sent none.
+    const requested = assignedChapter || (officerMember.memberChapter ?? "").trim();
+    if (!requested) {
       return { error: "Please choose the chapter this officer belongs to." };
     }
-    const validChapters = await getAllChapterNames();
     const match = validChapters.find(
-      (chapter) => chapter.toLowerCase() === assignedChapter.toLowerCase(),
+      (chapter) => chapter.toLowerCase() === requested.toLowerCase(),
     );
     if (!match) {
       return { error: "That chapter was not found. Please choose a valid chapter." };
@@ -87,7 +118,7 @@ export async function createAdminUserAction(
   revalidatePath("/admin/settings");
   revalidatePath("/admin/officer-accounts");
   const scopeSuffix = chapterScope ? ` for ${chapterScope}` : "";
-  return { success: `Account created for ${email} (${officerTitleFor(role)}${scopeSuffix}).` };
+  return { success: `Account created for ${name} (${email}) — ${officerTitleFor(role)}${scopeSuffix}.` };
 }
 
 function officerTitleFor(role: string): string {
