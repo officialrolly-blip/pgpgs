@@ -27,7 +27,7 @@ function loadEnv(file: string) {
 }
 
 async function main() {
-  for (const file of [".env.local", ".env"]) loadEnv(file);
+  for (const file of [".env.local", ".env", ".env.example"]) loadEnv(file);
   const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL_UNPOOLED/DATABASE_URL is not configured.");
 
