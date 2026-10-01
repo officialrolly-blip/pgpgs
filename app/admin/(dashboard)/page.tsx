@@ -107,10 +107,12 @@ export default async function AdminOverviewPage() {
   const pendingChapters = Number(chapterCounts.rows[0]?.pending ?? 0);
   const publishedChapters = Number(chapterCounts.rows[0]?.published ?? 0);
   const unread = Number(unreadMessages.rows[0]?.unread ?? 0);
-  const metrics: Metric[] = [
+  const directoryMetrics: Metric[] = [
     { label: "Members", value: Number(memberStats?.total ?? 0), detail: "Chapter directory", href: "/admin/members", tone: "green", icon: "users" },
     { label: "Officers", value: Number(memberStats?.officers ?? 0), detail: "Active appointments", href: "/admin/officials", tone: "gold", icon: "badge" },
     { label: "Alumni", value: Number(memberStats?.alumni ?? 0), detail: "Former members", href: "/admin/members?status=Alumni", tone: "slate", icon: "grad" },
+  ];
+  const workflowMetrics: Metric[] = [
     { label: "To review", value: pending, detail: pending === 1 ? "Application pending" : "Applications pending", href: "/admin/registrations", tone: "amber", icon: "inbox" },
     { label: "Inbox", value: unread, detail: unread === 1 ? "Unread message" : "Unread messages", href: "/admin/inbox", tone: unread > 0 ? "amber" : "slate", icon: "mail" },
     { label: "Chapters", value: pendingChapters, detail: `${pendingChapters === 1 ? "Chapter" : "Chapters"} awaiting review · ${publishedChapters} published`, href: "/admin/chapters", tone: "gold", icon: "pin" },
@@ -195,27 +197,8 @@ export default async function AdminOverviewPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" aria-label="Chapter totals">
-        {metrics.map((metric) => (
-          <Link
-            key={metric.label}
-            href={metric.href}
-            className={`a-card a-card-hover group p-5 ${metric.tone === "amber" && metric.value > 0 ? "border-a-warning/40 ring-1 ring-a-warning/20" : ""}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <span className={`a-icon-tile ${toneChips[metric.tone]}`}>
-                <MetricIcon name={metric.icon} />
-              </span>
-              <span className="text-lg text-a-muted opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" aria-hidden="true">
-                →
-              </span>
-            </div>
-            <p className="mt-4 text-3xl font-bold tracking-tight text-a-text">{metric.value}</p>
-            <p className="mt-1 text-sm font-semibold text-a-text">{metric.label}</p>
-            <p className="mt-0.5 text-xs leading-4 text-a-muted">{metric.detail}</p>
-          </Link>
-        ))}
-      </section>
+      <MetricCardRow label="Directory totals" metrics={directoryMetrics} />
+      <MetricCardRow label="Workflows needing attention" metrics={workflowMetrics} className="mt-4" />
 
       <div className="mt-6 flex flex-col gap-5">
         <MonthlyTrendChart months={trend} />
@@ -569,6 +552,32 @@ function MetricIcon({ name }: { name: Metric["icon"] }) {
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={paths[name]} />
     </svg>
+  );
+}
+
+function MetricCardRow({ label, metrics, className = "" }: { label: string; metrics: Metric[]; className?: string }) {
+  return (
+    <section className={`grid gap-4 sm:grid-cols-3 ${className}`} aria-label={label}>
+      {metrics.map((metric) => (
+        <Link
+          key={metric.label}
+          href={metric.href}
+          className={`a-card a-card-hover group p-5 ${metric.tone === "amber" && metric.value > 0 ? "border-a-warning/40 ring-1 ring-a-warning/20" : ""}`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span className={`a-icon-tile ${toneChips[metric.tone]}`}>
+              <MetricIcon name={metric.icon} />
+            </span>
+            <span className="text-lg text-a-muted opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" aria-hidden="true">
+              →
+            </span>
+          </div>
+          <p className="mt-4 text-3xl font-bold tracking-tight text-a-text">{metric.value}</p>
+          <p className="mt-1 text-sm font-semibold text-a-text">{metric.label}</p>
+          <p className="mt-0.5 text-xs leading-4 text-a-muted">{metric.detail}</p>
+        </Link>
+      ))}
+    </section>
   );
 }
 
