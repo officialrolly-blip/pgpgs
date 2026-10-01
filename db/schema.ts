@@ -213,6 +213,41 @@ export const memberSessions = pgTable("member_sessions", {
     .notNull(),
 });
 
+// Monthly member contributions (chapter dues ledger).
+// Admins manage these in the dashboard Contributions (/admin/contributions).
+export const contributionSettings = pgTable("contribution_settings", {
+  id: integer("id").primaryKey().default(1),
+  monthlyAmountCents: integer("monthly_amount_cents").notNull().default(10000),
+  dueDay: integer("due_day").notNull().default(15),
+  currency: text("currency").notNull().default("PHP"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedBy: text("updated_by"),
+});
+
+export const monthlyContributions = pgTable("monthly_contributions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  memberPk: uuid("member_pk")
+    .notNull()
+    .references(() => pgpmembers.id, { onDelete: "cascade" }),
+  billingMonth: text("billing_month").notNull(), // YYYY-MM
+  amountDueCents: integer("amount_due_cents").notNull(),
+  amountPaidCents: integer("amount_paid_cents").notNull().default(0),
+  status: text("status").notNull().default("unpaid"), // unpaid | partial | paid | waived
+  paymentMethod: text("payment_method"), // cash | gcash | bank | maya | other
+  referenceNumber: text("reference_number"),
+  note: text("note"),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  recordedBy: text("recorded_by"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 // Queries submitted through the public "Get in touch" contact form.
 // Admins read and manage these in the dashboard Inbox (/admin/inbox).
 export const contactMessages = pgTable("contact_messages", {

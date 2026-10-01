@@ -107,6 +107,16 @@ export default async function AdminOverviewPage() {
   const pendingChapters = Number(chapterCounts.rows[0]?.pending ?? 0);
   const publishedChapters = Number(chapterCounts.rows[0]?.published ?? 0);
   const unread = Number(unreadMessages.rows[0]?.unread ?? 0);
+  let duesCollected = 0;
+  let duesExpected = 0;
+  let duesUnpaidCount = 0;
+  try {
+    const dues = await db.execute<{ c: number; e: number; u: number }>(
+      `select coalesce(sum(amount_paid_cents),0)::int as c, coalesce(sum(amount_due_cents),0)::int as e, count(*) filter (where status in ('unpaid','partial'))::int as u from monthly_contributions where billing_month = to_char(now(), 'YYYY-MM')`,
+    );
+    const d = dues.rows[0];
+    if (d) { duesCollected = d.c; duesExpected = d.e; duesUnpaidCount = d.u; }
+  } catch { /* tables not migrated yet — overview stays clean */ }
   const directoryMetrics: Metric[] = [
     { label: "Members", value: Number(memberStats?.total ?? 0), detail: "Chapter directory", href: "/admin/members", tone: "green", icon: "users" },
     { label: "Officers", value: Number(memberStats?.officers ?? 0), detail: "Active appointments", href: "/admin/officials", tone: "gold", icon: "badge" },
@@ -117,6 +127,7 @@ export default async function AdminOverviewPage() {
     { label: "Inbox", value: unread, detail: unread === 1 ? "Unread message" : "Unread messages", href: "/admin/inbox", tone: unread > 0 ? "amber" : "slate", icon: "mail" },
     { label: "Chapters", value: pendingChapters, detail: `${pendingChapters === 1 ? "Chapter" : "Chapters"} awaiting review · ${publishedChapters} published`, href: "/admin/chapters", tone: "gold", icon: "pin" },
   ];
+  const duesRate = duesExpected > 0 ? Math.round((duesCollected / duesExpected) * 100) : 0;
 
   const now = new Date();
   const hour = now.getHours();
@@ -199,6 +210,30 @@ export default async function AdminOverviewPage() {
 
       <MetricCardRow label="Directory totals" metrics={directoryMetrics} />
       <MetricCardRow label="Workflows needing attention" metrics={workflowMetrics} className="mt-4" />
+
+      <section className="a-card mt-4 overflow-hidden" aria-label="This month's dues collection">
+        <Link href="/admin/contributions" className="group flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex min-w-0 items-center gap-4">
+            <span className="a-icon-tile bg-a-gold-soft text-[#8a6d10]">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M15 4H6v16h3v-6h4l2 2v4h3v-6l-2.5-2L18 10V4zM9 7h3v4H9z" />
+              </svg>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-a-text transition group-hover:text-a-brand">Monthly contributions · {now.toLocaleDateString("en-PH", { month: "long" })}</span>
+              <span className="mt-0.5 block text-xs text-a-muted">
+                ₱{(duesCollected / 100).toFixed(2)} of ₱{(duesExpected / 100).toFixed(2)} collected ({duesRate}%){duesUnpaidCount > 0 ? ` · ${duesUnpaidCount} unpaid` : " · all settled"}
+              </span>
+            </span>
+          </div>
+          <span className="flex items-center gap-3">
+            <span className="h-2 w-40 overflow-hidden rounded-full bg-[var(--a-border-soft)]" role="img" aria-label={`${duesRate}% collected`}>
+              <span className="block h-full rounded-full bg-a-brand" style={{ width: `${Math.min(100, duesRate)}%` }} />
+            </span>
+            <span className="text-sm font-medium text-a-brand transition group-hover:text-a-brand-dark">Open ledger →</span>
+          </span>
+        </Link>
+      </section>
 
       <div className="mt-6 flex flex-col gap-5">
         <MonthlyTrendChart months={trend} />

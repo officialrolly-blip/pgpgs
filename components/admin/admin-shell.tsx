@@ -28,6 +28,7 @@ const navSections: { caption: string; links: NavLink[] }[] = [
     links: [
       { label: "Officers", href: "/admin/officials", icon: "badge" },
       { label: "Chapters", href: "/admin/chapters", icon: "pin" },
+      { label: "Contributions", href: "/admin/contributions", icon: "peso" },
     ],
   },
   {
@@ -62,6 +63,7 @@ function NavIcon({ name }: { name: string }) {
     pin: "M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0ZM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5",
     news: "M4 5h16v14H4zM4 9h16M8 13h8M8 17h5",
     id: "M3 5h18v14H3zM3 10h18M7 14h5",
+    peso: "M15 4H6v16h3v-6h4l2 2v4h3v-6l-2.5-2L18 10V4zM9 7h3v4H9z",
     gear: "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.5 1.5-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.1v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.5-1.5.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H7v-2.1h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V5h2.1v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2v2.1h-.2a1.7 1.7 0 0 0-1.5 1Z",
   };
   return (

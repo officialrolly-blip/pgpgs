@@ -20,6 +20,7 @@
     "db:migrate-initiator-chapter": "tsx scripts/apply-initiator-chapter-migration.ts",
     "db:migrate-news-posts": "tsx scripts/apply-news-posts-migration.ts",
     "db:migrate-contact-messages": "tsx scripts/apply-contact-messages-migration.ts",
+    "db:migrate-contributions": "tsx scripts/apply-contributions-migration.ts",
     "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {

@@ -312,11 +312,59 @@ export default function MemberIdPage() {
               <DigitalIdCard frontRef={idCardFrontRef} backRef={idCardBackRef} member={idMember} flipped={flipped} />
             )}
             <p className="mt-4 text-center text-[10px] text-[#8a7b52]">This is your official PGPGS digital membership ID. You may be asked to present it for verification.</p>
+            <MemberDuesStanding />
           </div>
         )}
       </div>
     </main>
   );
+
+function MemberDuesStanding() {
+  const [bills, setBills] = useState<{ billingMonth: string; amountDueCents: number; amountPaidCents: number; status: string; paymentMethod: string | null }[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/member-id/contributions", { cache: "no-store" })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error("unavailable");
+        if (live) setBills(d.bills ?? []);
+      })
+      .catch(() => { if (live) setBills([]); });
+    return () => { live = false; };
+  }, []);
+  if (!bills || bills.length === 0) return null;
+  const owed = bills
+    .filter((b) => b.status === "unpaid" || b.status === "partial")
+    .reduce((s, b) => s + Math.max(0, b.amountDueCents - b.amountPaidCents), 0);
+  const current = bills[0]!;
+  return (
+    <div className="mx-auto mt-5 w-full max-w-[430px] rounded-2xl border border-[#e6dcc4] bg-white/90 p-5 shadow-xl">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8a7b52]">My monthly dues</p>
+          <p className="mt-0.5 text-sm font-bold text-[#1c2c22]">{monthName(current.billingMonth)} · <span className="uppercase">{current.status}</span></p>
+        </div>
+        <p className={`text-sm font-bold ${owed > 0 ? "text-red-600" : "text-[#1b5c38]"}`}>{owed > 0 ? `₱${(owed / 100).toFixed(2)} due` : "All settled"}</p>
+      </div>
+      <ul className="mt-3 divide-y divide-[#f0e8d5]">
+        {bills.slice(0, 6).map((b) => (
+          <li key={b.billingMonth} className="flex items-center justify-between py-2 text-xs">
+            <span className="font-semibold text-[#1c2c22]">{monthName(b.billingMonth)}</span>
+            <span className="font-mono text-[#5a6b5f]">{b.status === "paid" ? "Paid" : `₱${(b.amountPaidCents / 100).toFixed(2)} / ₱${(b.amountDueCents / 100).toFixed(2)}`}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[10px] leading-4 text-[#8a7b52]">Pay through your chapter treasurer (cash / GCash). Balances carry forward as arrears until settled.</p>
+    </div>
+  );
+}
+
+function monthName(ym: string): string {
+  const m = ym.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+  if (!m) return ym;
+  return new Date(Number(m[1]), Number(m[2]) - 1, 1).toLocaleDateString("en-PH", { month: "short", year: "numeric" });
+}
+
 }
 
 type DigitalIdCardProps = {
