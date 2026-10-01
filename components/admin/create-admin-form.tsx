@@ -13,6 +13,29 @@ import {
 const inputClass = "a-input";
 const fieldLabelClass = "text-xs font-semibold uppercase tracking-wide text-a-muted";
 
+const GENERATED_PASSWORD_PREFIX = "pgpgs";
+// Visually ambiguous glyphs (0/O, 1/l/I) are excluded so the password can be
+// read aloud or copied over chat without confusion. 32 symbols means the
+// `byte % 32` pick below stays perfectly uniform (no modulo bias).
+const PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/**
+ * Builds a throwaway password like `pgpgs-7KQF-M3XZ`: a recognisable prefix
+ * plus 8 random symbols (15 characters total, above the 12-character minimum).
+ * Uses the Web Crypto RNG rather than Math.random so it is not guessable.
+ */
+function generatePassword(): string {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  const chars = Array.from(
+    bytes,
+    (byte) => PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length],
+  );
+  return `${GENERATED_PASSWORD_PREFIX}-${chars.slice(0, 4).join("")}-${chars
+    .slice(4)
+    .join("")}`;
+}
+
 export default function CreateAdminForm({ chapters }: { chapters: string[] }) {
   const [state, formAction, isPending] = useActionState<AdminUserFormState, FormData>(
     createAdminUserAction,
@@ -23,6 +46,9 @@ export default function CreateAdminForm({ chapters }: { chapters: string[] }) {
   // null = follow the member's chapter; a string = the super admin overrode it.
   const [chapterOverride, setChapterOverride] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [didCopyPassword, setDidCopyPassword] = useState(false);
   const needsChapter = isChapterScopedRole(role);
 
   // The chapter is read straight from the member record the super admin picks.
@@ -45,6 +71,28 @@ export default function CreateAdminForm({ chapters }: { chapters: string[] }) {
     const emailInput = emailRef.current;
     if (next?.email && emailInput && !emailInput.value.trim()) {
       emailInput.value = next.email;
+    }
+  }
+
+  function handleGeneratePassword() {
+    const passwordInput = passwordRef.current;
+    if (!passwordInput) return;
+    passwordInput.value = generatePassword();
+    setDidCopyPassword(false);
+    // Reveal it so the super admin can read it out / copy it to the officer.
+    setIsPasswordVisible(true);
+  }
+
+  async function handleCopyPassword() {
+    const passwordInput = passwordRef.current;
+    if (!passwordInput?.value) return;
+    try {
+      await navigator.clipboard.writeText(passwordInput.value);
+      setDidCopyPassword(true);
+    } catch {
+      // Clipboard can be blocked (insecure context / permissions); the field is
+      // revealed anyway so the password can still be selected and copied.
+      setDidCopyPassword(false);
     }
   }
 
@@ -102,12 +150,47 @@ export default function CreateAdminForm({ chapters }: { chapters: string[] }) {
           placeholder="officer@example.com"
         />
       </label>
-      <label className="block">
-        <span className={fieldLabelClass}>
-          Password (min. 12 characters)
+      <div className="block">
+        <span className={fieldLabelClass}>Password (min. 12 characters)</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={passwordRef}
+            name="password"
+            type={isPasswordVisible ? "text" : "password"}
+            autoComplete="new-password"
+            required
+            minLength={12}
+            className={`${inputClass} flex-1`}
+            placeholder="Generate one or type your own"
+          />
+          <button
+            type="button"
+            onClick={handleGeneratePassword}
+            className="a-btn a-btn-secondary a-btn-sm shrink-0"
+          >
+            Generate
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsPasswordVisible((visible) => !visible)}
+            className="a-btn a-btn-ghost a-btn-sm shrink-0"
+          >
+            {isPasswordVisible ? "Hide" : "Show"}
+          </button>
+          <button
+            type="button"
+            onClick={handleCopyPassword}
+            className="a-btn a-btn-ghost a-btn-sm shrink-0"
+          >
+            {didCopyPassword ? "Copied" : "Copy"}
+          </button>
+        </div>
+        <span className="mt-1 block text-xs text-a-muted">
+          Starts with <code className="font-mono">pgpgs-</code> and adds random
+          characters. Share it with the officer securely — they can change it later
+          from Settings.
         </span>
-        <input name="password" type="password" autoComplete="new-password" required minLength={12} className={inputClass} />
-      </label>
+      </div>
       <label className="block">
         <span className={fieldLabelClass}>Role</span>
         <select
