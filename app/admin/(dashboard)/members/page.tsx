@@ -8,6 +8,7 @@ import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import MemberDirectorySearch from "@/components/admin/member-directory-search";
 import { deleteMemberAction } from "@/lib/actions/member-actions";
 import { requireAdmin } from "@/lib/auth";
+import { chapterMatches } from "@/lib/chapters";
 import { MEMBER_STATUSES } from "@/lib/member-constants";
 import { canEditMembers, roleLabel, scopeLabel } from "@/lib/officer-permissions";
 
@@ -34,7 +35,10 @@ export default async function AdminMembersPage({
   );
 
   const conditions = [ne(pgpmembers.status, "Neophyte")];
-  if (chapterScoped && scope) conditions.push(eq(pgpmembers.memberChapter, scope));
+  if (chapterScoped && scope) {
+    const chapterCondition = chapterMatches(pgpmembers.memberChapter, scope);
+    if (chapterCondition) conditions.push(chapterCondition);
+  }
   if (q) {
     const pattern = `%${q}%`;
     const searchCondition = or(

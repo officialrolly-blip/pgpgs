@@ -64,6 +64,7 @@ omit the header entirely — the admin cookie is accepted as a fallback.
 | GET | `/news/{slug}` | — | Full single news post |
 | GET | `/chapters` | — | Published chapters |
 | GET | `/officers` | — | Current Roxas City officers |
+| GET | `/members?q=&status=&chapter=&limit=&offset=` | Admin | Member directory, auto-scoped to the caller's chapter |
 | GET | `/contributions?month&q=status&page&perPage` | Admin | Dues ledger page (search + filters) |
 | POST | `/contributions` | Admin | Record/edit a payment or waive a bill |
 | GET | `/contributions/summary?month` | Admin | Collection overview for a month |
@@ -74,6 +75,36 @@ omit the header entirely — the admin cookie is accepted as a fallback.
 | GET | `/contributions/me?limit` | Member | The member's own dues ledger |
 | GET | `/contributions/{id}` | Admin | Single contribution record |
 | DELETE | `/contributions/{id}` | Admin | Delete a record (corrections only) |
+
+### Members (admin)
+
+The member directory, scoped automatically by the caller's role:
+
+```
+GET /api/v1/members?q=&status=&chapter=&limit=&offset=&includeNeophytes=true
+Authorization: Bearer <admin token>
+
+→ 200 { "members": [ { "id", "memberId", "fullName", "email", "status",
+                      "chapter", "position", "dateElected",
+                      "photoUrl", "hasPhoto" } ],
+        "pagination": { "total", "limit", "offset", "returned", "hasMore" },
+        "countsByStatus": { "Member": 6, "PGP-GS Roxas City Chapter Officer": 8 },
+        "scope": { "role", "chapter", "locked" },
+        "chapters": ["…"] }
+→ 400 bad limit/offset · 401 · 403 chapter outside your scope · 429
+```
+
+**Chapter scoping** — `chapter_secretary` / `chapter_treasurer` are pinned to
+their `assignedChapter`. Passing a different `?chapter=` returns **403** rather
+than silently widening their view; omitting it returns their chapter.
+Provincial roles (`provincial_secretary` / `provincial_treasurer`) and full
+admins are unscoped — omit `?chapter=` for the whole province or pass one to
+filter. `scope.locked` tells the client which mode is active.
+
+Chapter matching strips the `Pi Gamma Phi Gamma Sigma` prefix and ignores case,
+so `?chapter=Roxas City Capiz Chapter` also matches members stored as
+`Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter`. Neophytes are excluded
+unless `includeNeophytes=true`. `limit` defaults to 25, max 100.
 
 ### Notes
 
