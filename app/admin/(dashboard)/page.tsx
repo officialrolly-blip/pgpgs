@@ -217,7 +217,7 @@ export default async function AdminOverviewPage() {
         ))}
       </section>
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.8fr)_minmax(280px,0.8fr)]">
+      <div className="mt-6 flex flex-col gap-5">
         <MonthlyTrendChart months={trend} />
         <DirectoryDonutChart segments={composition} />
         <NeophytePipelineChart stages={pipeline} unexpected={unexpectedStages} />
@@ -310,13 +310,10 @@ function MonthlyTrendChart({ months }: { months: { key: string; label: string; v
   return (
     <section className="a-card overflow-hidden" aria-labelledby="trend-heading">
       <PanelHeader title="Applications · last 12 months" href="/admin/registrations" action="All applications" />
-      <div className="px-5 py-5">
-        <p className="text-sm text-a-muted">
-          <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>{" "}
-          {total === 1 ? "application" : "applications"} in the last year
-        </p>
+      <div className="px-5 pt-5 sm:px-6 sm:pt-6">
+        <p className="text-sm text-a-muted">Monthly submissions across the last year.</p>
         <div
-          className="mt-4 flex h-36 items-end gap-1.5 sm:gap-2"
+          className="mt-5 flex h-44 items-end gap-2 sm:h-52 sm:gap-3"
           role="img"
           aria-label={`Monthly applications for the last 12 months, ${total} in total.`}
         >
@@ -328,7 +325,7 @@ function MonthlyTrendChart({ months }: { months: { key: string; label: string; v
                   style={{ height: `${Math.max(month.value > 0 ? 8 : 3, Math.round((month.value / max) * 100))}%` }}
                 />
               </div>
-              <span className="mt-1.5 w-full truncate text-center text-[10px] font-medium uppercase text-a-muted">{month.label}</span>
+              <span className="mt-2 w-full truncate text-center text-[10px] font-medium uppercase tracking-wide text-a-muted">{month.label}</span>
               <span className="pointer-events-none absolute -top-8 hidden whitespace-nowrap rounded-md bg-[var(--a-text)] px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-md transition group-hover:opacity-100 sm:block" aria-hidden="true">
                 {month.value}
               </span>
@@ -340,6 +337,13 @@ function MonthlyTrendChart({ months }: { months: { key: string; label: string; v
             <li key={month.key}>{month.full}: {month.value} {month.value === 1 ? "application" : "applications"}</li>
           ))}
         </ul>
+      </div>
+      <div className="mt-5 flex items-baseline justify-between gap-4 border-t border-a-border-soft px-5 py-4 sm:px-6">
+        <p className="text-sm text-a-muted">Total in the last year</p>
+        <p className="text-sm text-a-muted">
+          <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>{" "}
+          {total === 1 ? "application" : "applications"}
+        </p>
       </div>
     </section>
   );
@@ -363,9 +367,9 @@ function DirectoryDonutChart({ segments }: { segments: { label: string; value: n
   return (
     <section className="a-card overflow-hidden" aria-labelledby="composition-heading">
       <PanelHeader title="Directory composition" href="/admin/members" action="Directory" />
-      <div className="flex items-center gap-5 px-5 py-5">
+      <div className="flex flex-col gap-6 px-5 pt-6 sm:flex-row sm:items-center sm:gap-8 sm:px-6">
         <div
-          className="relative h-36 w-36 shrink-0"
+          className="relative h-44 w-44 shrink-0 self-center sm:self-auto"
           role="img"
           aria-label={total === 0 ? "The member directory is empty." : `Directory composition: ${segments.map((segment) => `${segment.label} ${segment.value}`).join(", ")}.`}
         >
@@ -388,21 +392,33 @@ function DirectoryDonutChart({ segments }: { segments: { label: string; value: n
             )}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>
+            <span className="text-3xl font-bold tracking-tight text-a-text">{total}</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-a-muted">records</span>
           </div>
         </div>
-        <ul className="min-w-0 flex-1 space-y-2.5">
+        <ul className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 sm:gap-4">
           {segments.map((segment) => (
             <li key={segment.label}>
-              <Link href={segment.href} className="group flex items-center gap-2 text-sm">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: segment.color }} aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate font-medium text-a-secondary transition group-hover:text-a-brand">{segment.label}</span>
-                <span className="font-bold tabular-nums text-a-text">{segment.value}</span>
+              <Link href={segment.href} className="group flex items-center gap-3 rounded-xl border border-a-border-soft px-4 py-3.5 transition hover:border-a-brand/40 hover:bg-[var(--a-bg)]">
+                <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: segment.color }} aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-a-secondary transition group-hover:text-a-brand">{segment.label}</span>
+                  <span className="mt-0.5 block text-xs text-a-muted">
+                    {total === 0 ? "0%" : `${Math.round((segment.value / total) * 100)}%`} of directory
+                  </span>
+                </span>
+                <span className="text-lg font-bold tabular-nums text-a-text">{segment.value}</span>
               </Link>
             </li>
           ))}
         </ul>
+      </div>
+      <div className="mt-6 flex items-baseline justify-between gap-4 border-t border-a-border-soft px-5 py-4 sm:px-6">
+        <p className="text-sm text-a-muted">Total directory records</p>
+        <p className="text-sm text-a-muted">
+          <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>{" "}
+          {total === 1 ? "record" : "records"}
+        </p>
       </div>
     </section>
   );
@@ -420,12 +436,9 @@ function NeophytePipelineChart({
   return (
     <section className="a-card overflow-hidden" aria-labelledby="pipeline-heading">
       <PanelHeader title="Neophyte pipeline" href="/admin/neophytes" action="Neophytes" />
-      <div className="px-5 py-5">
-        <p className="text-sm text-a-muted">
-          <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>{" "}
-          {total === 1 ? "neophyte" : "neophytes"} in formation
-        </p>
-        <ol className="mt-4 space-y-3">
+      <div className="px-5 pt-5 sm:px-6 sm:pt-6">
+        <p className="text-sm text-a-muted">Formation stages from orientation to full membership.</p>
+        <ol className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-2">
           {stages.map((stage, index) => (
             <li key={stage.stage}>
               <div className="flex items-baseline justify-between gap-3 text-sm">
@@ -449,11 +462,18 @@ function NeophytePipelineChart({
           ))}
         </ol>
         {unexpected.length > 0 ? (
-          <p className="mt-4 rounded-lg bg-a-warning-soft px-3 py-2 text-xs font-medium leading-5 text-a-warning">
+          <p className="mt-5 rounded-lg bg-a-warning-soft px-3 py-2 text-xs font-medium leading-5 text-a-warning">
             {unexpected.reduce((sum, [, count]) => sum + count, 0)} {unexpected.length === 1 ? "record has" : "records have"} an
             unexpected stage ({unexpected.map(([stage]) => stage).join(", ")}). Open a neophyte to reset it.
           </p>
         ) : null}
+      </div>
+      <div className="mt-5 flex items-baseline justify-between gap-4 border-t border-a-border-soft px-5 py-4 sm:px-6">
+        <p className="text-sm text-a-muted">Total in formation</p>
+        <p className="text-sm text-a-muted">
+          <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>{" "}
+          {total === 1 ? "neophyte" : "neophytes"}
+        </p>
       </div>
     </section>
   );
