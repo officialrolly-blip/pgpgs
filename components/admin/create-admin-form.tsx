@@ -128,15 +128,17 @@ export default function CreateAdminForm({ chapters }: { chapters: string[] }) {
           tabIndex={-1}
           aria-readonly="true"
           value={memberChapter}
-          placeholder="Select a member first"
+          placeholder={member ? "Not recorded on this member" : "Select a member first"}
           className={`${inputClass} cursor-not-allowed bg-black/[0.03] text-a-muted`}
         />
         <span className="mt-1 block text-xs text-a-muted">
-          {memberChapter
-            ? matchedChapter
-              ? "Identified from the member record — not editable."
-              : "This chapter is not in the chapter list yet; ask an admin to add it."
-            : "Chapter is identified once a member is selected."}
+          {!member
+            ? "Chapter is identified once a member is selected."
+            : !memberChapter
+              ? "This member has no chapter saved yet — set it on their member profile first."
+              : matchedChapter
+                ? "Identified from the member record — not editable."
+                : `“${memberChapter}” is not in the chapter list. Add the chapter, or pick it manually below.`}
         </span>
       </label>
       <label className="block">

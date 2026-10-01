@@ -35,7 +35,9 @@ export async function GET(request: Request) {
         lastName: pgpmembers.lastName,
         middleInitial: pgpmembers.middleInitial,
         status: pgpmembers.status,
-        memberChapter: pgpmembers.memberChapter,
+        // Aliased to `chapter` so the payload matches `MemberOption` in
+        // components/admin/member-combobox.tsx.
+        chapter: pgpmembers.memberChapter,
         email: pgpmembers.email,
       })
       .from(pgpmembers)
