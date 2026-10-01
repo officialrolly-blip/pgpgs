@@ -4,6 +4,7 @@ import { desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers, registrations } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import { NEOPHYTE_STATUS_LABELS, NEOPHYTE_STATUSES } from "@/lib/member-constants";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -19,7 +20,17 @@ type Metric = {
 export default async function AdminOverviewPage() {
   const admin = await requireAdmin();
 
-  const [memberCounts, applicationCounts, chapterCounts, unreadMessages, pendingApplications, recentMembers] = await Promise.all([
+  const [
+    memberCounts,
+    applicationCounts,
+    chapterCounts,
+    unreadMessages,
+    directoryBreakdown,
+    neophyteStages,
+    monthlyRegistrations,
+    pendingApplications,
+    recentMembers,
+  ] = await Promise.all([
     db.execute<{ total: number; officers: number; alumni: number }>(
       `select
          count(*)::int as total,
@@ -39,6 +50,27 @@ export default async function AdminOverviewPage() {
     ),
     db.execute<{ unread: number }>(
       `select count(*)::int as unread from contact_messages where status = 'unread'`,
+    ),
+    db.execute<{ neophytes: number; officers: number; alumni: number; regular: number }>(
+      `select
+         count(*) filter (where status = 'Neophyte')::int as neophytes,
+         count(*) filter (where status = 'PGP-GS Roxas City Chapter Officer')::int as officers,
+         count(*) filter (where status = 'Alumni')::int as alumni,
+         count(*) filter (where status not in ('Neophyte', 'PGP-GS Roxas City Chapter Officer', 'Alumni'))::int as regular
+       from pgpmembers`,
+    ),
+    db.execute<{ stage: string; total: number }>(
+      `select coalesce(neophyte_status, 'orientation') as stage, count(*)::int as total
+       from pgpmembers
+       where status = 'Neophyte'
+       group by 1`,
+    ),
+    db.execute<{ month: string; total: number }>(
+      `select to_char(date_trunc('month', created_at), 'YYYY-MM') as month, count(*)::int as total
+       from registrations
+       where created_at >= date_trunc('month', now()) - interval '11 months'
+       group by 1
+       order by 1`,
     ),
     db
       .select({
@@ -93,11 +125,47 @@ export default async function AdminOverviewPage() {
     day: "numeric",
     year: "numeric",
   });
+  const directory = directoryBreakdown.rows[0] ?? { neophytes: 0, officers: 0, alumni: 0, regular: 0 };
+  const composition = [
+    { label: "Members", value: Number(directory.regular ?? 0), color: "#1b5c38", href: "/admin/members" },
+    { label: "Officers", value: Number(directory.officers ?? 0), color: "#c9a227", href: "/admin/officials" },
+    { label: "Neophytes", value: Number(directory.neophytes ?? 0), color: "#175cd3", href: "/admin/neophytes" },
+    { label: "Alumni", value: Number(directory.alumni ?? 0), color: "#98a2b3", href: "/admin/members?status=Alumni" },
+  ];
+
+  // Neophyte formation pipeline — every stage is shown even when empty so a
+  // stall (or an unexpected value) is visible at a glance.
+  const stageCount = new Map(neophyteStages.rows.map((row) => [row.stage, Number(row.total ?? 0)]));
+  const knownStageValues = new Set<string>(NEOPHYTE_STATUSES);
+  const pipeline = NEOPHYTE_STATUSES.map((stage) => ({
+    stage,
+    label: NEOPHYTE_STATUS_LABELS[stage],
+    value: stageCount.get(stage) ?? 0,
+  }));
+  const unexpectedStages = [...stageCount.entries()].filter(([stage]) => !knownStageValues.has(stage));
   const pendingItems = [
     pending > 0 ? `${pending} ${pending === 1 ? "application" : "applications"} to review` : null,
     unread > 0 ? `${unread} unread ${unread === 1 ? "message" : "messages"}` : null,
     pendingChapters > 0 ? `${pendingChapters} ${pendingChapters === 1 ? "chapter" : "chapters"} awaiting review` : null,
+    unexpectedStages.length > 0
+      ? `${unexpectedStages.reduce((sum, [, total]) => sum + total, 0)} neophyte ${unexpectedStages.length === 1 ? "record" : "records"} with an unexpected stage`
+      : null,
   ].filter(Boolean);
+  const monthlyByKey = new Map(monthlyRegistrations.rows.map((row) => [row.month, Number(row.total ?? 0)]));
+  const trend: { key: string; label: string; value: number; full: string }[] = [];
+  // Roll the clock back by 11 months while keeping the day pinned to the 1st,
+  // so month boundaries stay exact regardless of month lengths.
+  const cursor = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  for (let index = 0; index < 12; index += 1) {
+    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+    trend.push({
+      key,
+      label: cursor.toLocaleDateString("en-PH", { month: "short" }),
+      value: monthlyByKey.get(key) ?? 0,
+      full: cursor.toLocaleDateString("en-PH", { month: "long", year: "numeric" }),
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
   const summaryLine =
     pendingItems.length === 0
       ? "Everything is up to date — no pending applications, unread messages, or chapter reviews."
@@ -148,6 +216,12 @@ export default async function AdminOverviewPage() {
           </Link>
         ))}
       </section>
+
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.8fr)_minmax(280px,0.8fr)]">
+        <MonthlyTrendChart months={trend} />
+        <DirectoryDonutChart segments={composition} />
+        <NeophytePipelineChart stages={pipeline} unexpected={unexpectedStages} />
+      </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.8fr)]">
         <section className="a-card overflow-hidden" aria-labelledby="review-heading">
@@ -223,6 +297,165 @@ export default async function AdminOverviewPage() {
         )}
       </section>
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Overview charts — hand-rendered SVG/divs, no extra dependencies      */
+/* ------------------------------------------------------------------ */
+
+function MonthlyTrendChart({ months }: { months: { key: string; label: string; value: number; full: string }[] }) {
+  const max = Math.max(1, ...months.map((month) => month.value));
+  const total = months.reduce((sum, month) => sum + month.value, 0);
+  return (
+    <section className="a-card overflow-hidden" aria-labelledby="trend-heading">
+      <PanelHeader title="Applications · last 12 months" href="/admin/registrations" action="All applications" />
+      <div className="px-5 py-5">
+        <p className="text-sm text-a-muted">
+          <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>{" "}
+          {total === 1 ? "application" : "applications"} in the last year
+        </p>
+        <div
+          className="mt-4 flex h-36 items-end gap-1.5 sm:gap-2"
+          role="img"
+          aria-label={`Monthly applications for the last 12 months, ${total} in total.`}
+        >
+          {months.map((month) => (
+            <div key={month.key} className="group relative flex min-w-0 flex-1 flex-col items-center self-stretch" title={`${month.full}: ${month.value}`}>
+              <div className="flex w-full flex-1 items-end">
+                <div
+                  className={`w-full rounded-t-md transition ${month.value > 0 ? "bg-a-brand group-hover:bg-a-brand-dark" : "bg-[var(--a-border-soft)]"}`}
+                  style={{ height: `${Math.max(month.value > 0 ? 8 : 3, Math.round((month.value / max) * 100))}%` }}
+                />
+              </div>
+              <span className="mt-1.5 w-full truncate text-center text-[10px] font-medium uppercase text-a-muted">{month.label}</span>
+              <span className="pointer-events-none absolute -top-8 hidden whitespace-nowrap rounded-md bg-[var(--a-text)] px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-md transition group-hover:opacity-100 sm:block" aria-hidden="true">
+                {month.value}
+              </span>
+            </div>
+          ))}
+        </div>
+        <ul className="sr-only">
+          {months.map((month) => (
+            <li key={month.key}>{month.full}: {month.value} {month.value === 1 ? "application" : "applications"}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function DirectoryDonutChart({ segments }: { segments: { label: string; value: number; color: string; href: string }[] }) {
+  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+  const RADIUS = 54;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  // Cumulative offsets computed up-front (no reassignment during render).
+  const boundaries: number[] = [0];
+  for (const segment of segments) {
+    const fraction = total === 0 ? 0 : segment.value / total;
+    boundaries.push(boundaries[boundaries.length - 1]! - fraction * CIRCUMFERENCE);
+  }
+  const arcs = segments.map((segment, index) => ({
+    ...segment,
+    fraction: total === 0 ? 0 : segment.value / total,
+    dashOffset: boundaries[index]!,
+  }));
+  return (
+    <section className="a-card overflow-hidden" aria-labelledby="composition-heading">
+      <PanelHeader title="Directory composition" href="/admin/members" action="Directory" />
+      <div className="flex items-center gap-5 px-5 py-5">
+        <div
+          className="relative h-36 w-36 shrink-0"
+          role="img"
+          aria-label={total === 0 ? "The member directory is empty." : `Directory composition: ${segments.map((segment) => `${segment.label} ${segment.value}`).join(", ")}.`}
+        >
+          <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90" aria-hidden="true">
+            <circle cx="64" cy="64" r={RADIUS} fill="none" stroke="var(--a-border-soft)" strokeWidth="16" />
+            {arcs.map((arc) =>
+              arc.fraction > 0 ? (
+                <circle
+                  key={arc.label}
+                  cx="64"
+                  cy="64"
+                  r={RADIUS}
+                  fill="none"
+                  stroke={arc.color}
+                  strokeWidth="16"
+                  strokeDasharray={`${arc.fraction * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+                  strokeDashoffset={arc.dashOffset}
+                />
+              ) : null,
+            )}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-a-muted">records</span>
+          </div>
+        </div>
+        <ul className="min-w-0 flex-1 space-y-2.5">
+          {segments.map((segment) => (
+            <li key={segment.label}>
+              <Link href={segment.href} className="group flex items-center gap-2 text-sm">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: segment.color }} aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate font-medium text-a-secondary transition group-hover:text-a-brand">{segment.label}</span>
+                <span className="font-bold tabular-nums text-a-text">{segment.value}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function NeophytePipelineChart({
+  stages,
+  unexpected,
+}: {
+  stages: { stage: string; label: string; value: number }[];
+  unexpected: [string, number][];
+}) {
+  const max = Math.max(1, ...stages.map((stage) => stage.value));
+  const total = stages.reduce((sum, stage) => sum + stage.value, 0);
+  return (
+    <section className="a-card overflow-hidden" aria-labelledby="pipeline-heading">
+      <PanelHeader title="Neophyte pipeline" href="/admin/neophytes" action="Neophytes" />
+      <div className="px-5 py-5">
+        <p className="text-sm text-a-muted">
+          <span className="text-2xl font-bold tracking-tight text-a-text">{total}</span>{" "}
+          {total === 1 ? "neophyte" : "neophytes"} in formation
+        </p>
+        <ol className="mt-4 space-y-3">
+          {stages.map((stage, index) => (
+            <li key={stage.stage}>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate font-medium text-a-secondary">
+                  <span className="mr-1.5 font-mono text-[11px] text-a-muted">{String(index + 1).padStart(2, "0")}</span>
+                  {stage.label}
+                </span>
+                <span className="shrink-0 font-bold tabular-nums text-a-text">{stage.value}</span>
+              </div>
+              <div
+                className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--a-border-soft)]"
+                role="img"
+                aria-label={`${stage.label}: ${stage.value} ${stage.value === 1 ? "neophyte" : "neophytes"}`}
+              >
+                <div
+                  className="h-full rounded-full bg-a-brand"
+                  style={{ width: `${Math.max(stage.value > 0 ? 6 : 0, Math.round((stage.value / max) * 100))}%` }}
+                />
+              </div>
+            </li>
+          ))}
+        </ol>
+        {unexpected.length > 0 ? (
+          <p className="mt-4 rounded-lg bg-a-warning-soft px-3 py-2 text-xs font-medium leading-5 text-a-warning">
+            {unexpected.reduce((sum, [, count]) => sum + count, 0)} {unexpected.length === 1 ? "record has" : "records have"} an
+            unexpected stage ({unexpected.map(([stage]) => stage).join(", ")}). Open a neophyte to reset it.
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
