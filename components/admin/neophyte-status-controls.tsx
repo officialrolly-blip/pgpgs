@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import {
@@ -9,7 +9,12 @@ import {
   updateNeophyteStatusAction,
   type NeophyteActionState,
 } from "@/lib/actions/neophyte-actions";
-import { NEOPHYTE_STATUSES, NEOPHYTE_STATUS_LABELS } from "@/lib/member-constants";
+import {
+  NEOPHYTE_FAILED_TO_COMPLY,
+  NEOPHYTE_FAILED_TO_COMPLY_LABEL,
+  NEOPHYTE_STATUSES,
+  NEOPHYTE_STATUS_LABELS,
+} from "@/lib/member-constants";
 
 export default function NeophyteStatusControls({
   neophyteId,
@@ -33,6 +38,16 @@ export default function NeophyteStatusControls({
     : "orientation";
   const passed = activeStatus === "passed_member";
   const certified = Boolean(certificationIssuedAt);
+  // Controlled select so the submit button can switch to a destructive
+  // "remove" action when "Failed to Comply" is chosen. Resync whenever the
+  // server-provided status changes (render-time adjustment).
+  const [selectedStatus, setSelectedStatus] = useState(activeStatus);
+  const [prevActiveStatus, setPrevActiveStatus] = useState(activeStatus);
+  if (prevActiveStatus !== activeStatus) {
+    setPrevActiveStatus(activeStatus);
+    setSelectedStatus(activeStatus);
+  }
+  const failedToComply = selectedStatus === NEOPHYTE_FAILED_TO_COMPLY;
 
   return (
     <div className="border-t border-a-border-soft bg-[var(--a-bg)] px-5 py-5 sm:px-6">
@@ -64,8 +79,18 @@ export default function NeophyteStatusControls({
       <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <form action={statusAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <input type="hidden" name="neophyteId" value={neophyteId} />
-          <label className="block"><span className="text-[11px] font-semibold uppercase tracking-wide text-a-muted">Update stage</span><select name="neophyteStatus" defaultValue={activeStatus} className="a-select mt-1 sm:min-w-56"><option value="orientation">Orientation</option><option value="baptism">Baptism</option><option value="baptism_confirmed">Confirmation of Baptism</option><option value="passed_member">Passed as a Member</option></select></label>
-          <button type="submit" disabled={statusPending} className="a-btn a-btn-primary a-btn-sm">{statusPending ? "Saving…" : "Save status"}</button>
+          <label className="block"><span className="text-[11px] font-semibold uppercase tracking-wide text-a-muted">Update stage</span><select name="neophyteStatus" value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)} className="a-select mt-1 sm:min-w-56"><option value="orientation">Orientation</option><option value="baptism">Baptism</option><option value="baptism_confirmed">Confirmation of Baptism</option><option value="passed_member">Passed as a Member</option><option value={NEOPHYTE_FAILED_TO_COMPLY}>{NEOPHYTE_FAILED_TO_COMPLY_LABEL}</option></select></label>
+          {failedToComply ? (
+            <ConfirmSubmitButton
+              message="Mark this neophyte as “Failed to Comply”? This permanently removes the neophyte record from the database. This action cannot be undone."
+              className="a-btn a-btn-danger a-btn-sm"
+              disabled={statusPending}
+            >
+              {statusPending ? "Removing…" : "Remove neophyte"}
+            </ConfirmSubmitButton>
+          ) : (
+            <button type="submit" disabled={statusPending} className="a-btn a-btn-primary a-btn-sm">{statusPending ? "Saving…" : "Save status"}</button>
+          )}
         </form>
 
         <div className="flex flex-wrap gap-2">
@@ -75,6 +100,9 @@ export default function NeophyteStatusControls({
         </div>
       </div>
 
+      {failedToComply ? (
+        <p className="mt-3 text-xs font-medium text-a-danger" role="alert">“{NEOPHYTE_FAILED_TO_COMPLY_LABEL}” permanently deletes this neophyte record from the database.</p>
+      ) : null}
       {statusState.error ? <p className="mt-3 text-xs font-medium text-a-danger">{statusState.error}</p> : null}
       {certState.error ? <p className="mt-3 text-xs font-medium text-a-danger">{certState.error}</p> : null}
       {statusState.success ? <p className="mt-3 text-xs font-medium text-a-success">{statusState.success}</p> : null}

@@ -30,6 +30,12 @@ export const NEOPHYTE_STATUS_LABELS: Record<
   passed_member: "Passed as a Member",
 };
 
+// Sentinel value for the admin "Update stage" dropdown. It is intentionally NOT
+// part of NEOPHYTE_STATUSES (the linear formation pipeline). Choosing it and
+// saving permanently removes the neophyte record from the database.
+export const NEOPHYTE_FAILED_TO_COMPLY = "failed_to_comply";
+export const NEOPHYTE_FAILED_TO_COMPLY_LABEL = "Failed to Comply";
+
 export const OFFICER_POSITIONS = [
   "President",
   "Vice President Internal",

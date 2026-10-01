@@ -6,7 +6,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
-import { NEOPHYTE_STATUSES, NEOPHYTE_STATUS_LABELS } from "@/lib/member-constants";
+import {
+  NEOPHYTE_FAILED_TO_COMPLY,
+  NEOPHYTE_STATUSES,
+  NEOPHYTE_STATUS_LABELS,
+} from "@/lib/member-constants";
 
 export type NeophyteActionState = { error?: string; success?: string };
 
@@ -28,6 +32,26 @@ export async function updateNeophyteStatusAction(
   const id = neophyteId(formData);
   const requestedStatus = String(formData.get("neophyteStatus") ?? "").trim();
   if (!id) return { error: "Missing neophyte reference." };
+
+  // "Failed to Comply": permanently remove the neophyte from the database
+  // instead of advancing the formation pipeline. member_credentials (and its
+  // sessions) cascade-delete automatically.
+  if (requestedStatus === NEOPHYTE_FAILED_TO_COMPLY) {
+    const [neophyte] = await db
+      .select({ id: pgpmembers.id, status: pgpmembers.status })
+      .from(pgpmembers)
+      .where(eq(pgpmembers.id, id))
+      .limit(1);
+    if (!neophyte || neophyte.status !== "Neophyte") {
+      return { error: "Neophyte record not found." };
+    }
+
+    await db.delete(pgpmembers).where(eq(pgpmembers.id, id));
+    revalidateNeophytePaths();
+    revalidatePath("/admin/officials");
+    redirect("/admin/neophytes?removed=1");
+  }
+
   if (!NEOPHYTE_STATUSES.includes(requestedStatus as (typeof NEOPHYTE_STATUSES)[number])) {
     return { error: "Please select a valid neophyte status." };
   }

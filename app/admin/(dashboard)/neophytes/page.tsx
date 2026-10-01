@@ -50,7 +50,7 @@ const stageBlurbs: Record<NeophyteStatus, string> = {
 export default async function AdminNeophytesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string; confirmed?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string; confirmed?: string; removed?: string }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
@@ -143,6 +143,13 @@ export default async function AdminNeophytesPage({
         <div role="status" className="a-card mb-5 flex items-start gap-3 border-a-success/30 bg-a-success-soft px-4 py-3.5">
           <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-a-success text-xs font-bold text-white" aria-hidden="true">✓</span>
           <p className="text-sm font-medium text-a-success">The neophyte was confirmed and moved to the member directory.</p>
+        </div>
+      ) : null}
+
+      {params.removed ? (
+        <div role="status" className="a-card mb-5 flex items-start gap-3 border-a-danger/30 bg-a-danger-soft px-4 py-3.5">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-a-danger text-xs font-bold text-white" aria-hidden="true">✓</span>
+          <p className="text-sm font-medium text-a-danger">The neophyte was marked as Failed to Comply and removed from the database.</p>
         </div>
       ) : null}
 
