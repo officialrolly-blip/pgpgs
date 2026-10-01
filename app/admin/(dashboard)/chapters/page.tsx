@@ -12,7 +12,7 @@ import {
   publishChapterAction,
   unpublishChapterAction,
 } from "@/lib/actions/chapter-actions";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminPage } from "@/lib/officer-access";
 
 export const metadata: Metadata = { title: "Across Capiz Chapters" };
 
@@ -32,7 +32,7 @@ function formatDate(date: Date) {
 }
 
 export default async function AdminChaptersPage() {
-  await requireAdmin();
+  await requireFullAdminPage();
 
   const rows = await db
     .select({

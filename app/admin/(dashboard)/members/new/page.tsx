@@ -4,7 +4,7 @@ import PageHeading from "@/components/admin/page-heading";
 import MemberForm, { emptyMemberForm } from "@/components/admin/member-form";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { canEditMembers } from "@/lib/officer-permissions";
+import { canEditMembers, scopeChapterFor } from "@/lib/officer-permissions";
 import { getAllChapterNames } from "@/lib/chapters";
 
 export const metadata: Metadata = {
@@ -29,7 +29,12 @@ export default async function NewMemberPage() {
           </Link>
         }
       />
-      <MemberForm mode="create" initial={emptyMemberForm} chapters={chapters} />
+      <MemberForm
+        mode="create"
+        initial={emptyMemberForm}
+        chapters={chapters}
+        lockedChapter={scopeChapterFor(viewer)}
+      />
     </>
   );
 }

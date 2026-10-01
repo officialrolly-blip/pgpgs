@@ -211,11 +211,14 @@ export default function MemberForm({
   initial,
   chapters,
   readOnly = false,
+  lockedChapter,
 }: {
   mode: "create" | "edit";
   initial: MemberFormValues;
   chapters: string[];
   readOnly?: boolean;
+  /** Chapter-scoped officers may only file members under their own chapter. */
+  lockedChapter?: string | null;
 }) {
   const [state, formAction, isPending] = useActionState<
     MemberFormState,
@@ -485,6 +488,20 @@ export default function MemberForm({
         <Section eyebrow="04A / Member details" title="Chapter Information">
           <div className="sm:col-span-2">
             <Field label="What PGPGS Chapter did you survive?" required>
+              {lockedChapter ? (
+                <>
+                  <input type="hidden" name="memberChapter" value={lockedChapter} />
+                  <input
+                    type="text"
+                    value={lockedChapter}
+                    readOnly
+                    className={`${inputClass} bg-a-brand-soft`}
+                  />
+                  <p className="mt-1 text-xs text-a-muted">
+                    Members must be filed under your assigned chapter.
+                  </p>
+                </>
+              ) : (
               <select
                 name="memberChapter"
                 defaultValue={initial.memberChapter}
@@ -498,6 +515,7 @@ export default function MemberForm({
                   </option>
                 ))}
               </select>
+              )}
             </Field>
           </div>
         </Section>

@@ -119,7 +119,13 @@ export default async function EditMemberPage({
           You have view-only access — contact your secretary or administrator to update this record.
         </p>
       ) : null}
-      <MemberForm mode="edit" initial={initial} chapters={chapters} readOnly={!canEdit} />
+      <MemberForm
+        mode="edit"
+        initial={initial}
+        chapters={chapters}
+        readOnly={!canEdit}
+        lockedChapter={chapterScoped ? scope : null}
+      />
     </>
   );
 }

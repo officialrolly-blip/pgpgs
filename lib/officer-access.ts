@@ -6,15 +6,9 @@
 // - Chapter secretary: assigned-chapter members read + write, chapter contributions read-only.
 // - Chapter treasurer: assigned-chapter members read-only, chapter contributions read + record.
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { pgpmembers } from "@/db/schema";
 import { getSessionUser, requireAdmin, type AdminUser } from "@/lib/auth";
 import {
-  canDeleteContributions,
   canEditMembers,
-  canManageContributionSettings,
-  canRecordContributions,
   isChapterScopedRole,
   isFullAdmin,
   scopeChapterFor,
@@ -71,59 +65,6 @@ export async function currentChapterScope(): Promise<string | null> {
   const user = await getSessionUser();
   if (!user) return null;
   return scopeChapterFor(asOfficer(user));
-}
-
-/** Throws a 403-style error when the user may not edit members. */
-export async function requireCanEditMembers(): Promise<OfficerSession> {
-  const user = await requireAdmin();
-  if (!canEditMembers(asOfficer(user))) {
-    throw new Error("Your account has view-only access to members.");
-  }
-  return user;
-}
-
-export async function requireCanRecordContributions(): Promise<OfficerSession> {
-  const user = await requireAdmin();
-  if (!canRecordContributions(asOfficer(user))) {
-    throw new Error("Your account cannot record contributions.");
-  }
-  return user;
-}
-
-export async function requireCanManageContributionSettings(): Promise<OfficerSession> {
-  const user = await requireAdmin();
-  if (!canManageContributionSettings(asOfficer(user))) {
-    throw new Error("Only administrators can change contribution settings.");
-  }
-  return user;
-}
-
-export async function requireCanDeleteContributions(): Promise<OfficerSession> {
-  const user = await requireAdmin();
-  if (!canDeleteContributions(asOfficer(user))) {
-    throw new Error("Only administrators can delete contribution records.");
-  }
-  return user;
-}
-
-/**
- * Ensures a chapter-scoped officer only touches members of their chapter.
- * Provincial + full admins always pass. Returns the member's chapter.
- */
-export async function assertMemberInScope(memberPk: string): Promise<void> {
-  const user = await requireAdmin();
-  const officer = asOfficer(user);
-  const scope = scopeChapterFor(officer);
-  if (!scope) return;
-  const [member] = await db
-    .select({ chapter: pgpmembers.memberChapter })
-    .from(pgpmembers)
-    .where(eq(pgpmembers.id, memberPk))
-    .limit(1);
-  if (!member) throw new Error("Member not found.");
-  if ((member.chapter ?? "").toLowerCase() !== scope.toLowerCase()) {
-    throw new Error(`This member belongs to another chapter (${member.chapter ?? "unassigned"}).`);
-  }
 }
 
 /** True when the signed-in user may open the member edit form. */

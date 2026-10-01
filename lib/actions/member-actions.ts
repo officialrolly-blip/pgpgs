@@ -315,6 +315,14 @@ export async function createMemberAction(
   }
   const values = parsed.values;
 
+  // A chapter-scoped officer may only create records inside their own chapter,
+  // so the chapter submitted in the form is forced to their assignment rather
+  // than trusted from the client.
+  const createScope = scopeChapterFor(viewer);
+  if (createScope) {
+    values.memberChapter = createScope;
+  }
+
   const [existing] = await db
     .select({ id: pgpmembers.id })
     .from(pgpmembers)
@@ -378,6 +386,15 @@ export async function updateMemberAction(
   const parsed = parseMemberForm(formData, validChapterNames);
   if (parsed.error || !parsed.values) {
     return { error: parsed.error ?? "Please review the form and try again." };
+  }
+
+  // The member must stay inside the officer's own chapter: they may not
+  // reassign a member into another chapter via the form.
+  if (scope) {
+    const submittedChapter = String(parsed.values.memberChapter ?? "").toLowerCase();
+    if (submittedChapter !== scope.toLowerCase()) {
+      return { error: "You can only keep members within your assigned chapter." };
+    }
   }
 
   const [emailConflict] = await db

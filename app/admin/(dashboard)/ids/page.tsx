@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
 import IdCardGrid, { type IdCardMember } from "@/components/admin/id-card";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminPage } from "@/lib/officer-access";
 
 export const metadata: Metadata = { title: "PGPGS ID" };
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ async function getSiteOrigin(): Promise<string> {
 }
 
 export default async function AdminIdsPage() {
-  await requireAdmin();
+  await requireFullAdminPage();
   const origin = await getSiteOrigin();
 
   const rows = await db

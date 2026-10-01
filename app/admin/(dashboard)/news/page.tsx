@@ -10,7 +10,7 @@ import {
   publishNewsPostAction,
   unpublishNewsPostAction,
 } from "@/lib/actions/news-actions";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminPage } from "@/lib/officer-access";
 
 export const metadata: Metadata = { title: "News & Events" };
 
@@ -19,7 +19,7 @@ function formatDate(date: Date) {
 }
 
 export default async function AdminNewsPage() {
-  await requireAdmin();
+  await requireFullAdminPage();
 
   const rows = await db
     .select({

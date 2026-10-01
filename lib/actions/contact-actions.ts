@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { contactMessages } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminAction } from "@/lib/officer-access";
 
 export type ContactFormState = { error?: string; success?: string };
 
@@ -83,7 +83,7 @@ export async function submitContactMessageAction(
 
 /** Admin: marks a message as read. */
 export async function markMessageReadAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
   const id = messageId(formData);
   if (!UUID_PATTERN.test(id)) return;
 
@@ -96,7 +96,7 @@ export async function markMessageReadAction(formData: FormData): Promise<void> {
 
 /** Admin: sends a message back to unread. */
 export async function markMessageUnreadAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireFullAdminAction();
   const id = messageId(formData);
   if (!UUID_PATTERN.test(id)) return;
 
@@ -109,7 +109,7 @@ export async function markMessageUnreadAction(formData: FormData): Promise<void>
 
 /** Admin: permanently removes a message. */
 export async function deleteMessageAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireFullAdminAction();
   const id = messageId(formData);
   if (!UUID_PATTERN.test(id)) return;
 

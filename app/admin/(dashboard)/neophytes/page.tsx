@@ -4,7 +4,7 @@ import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import NeophyteStatusControls from "@/components/admin/neophyte-status-controls";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminPage } from "@/lib/officer-access";
 import { NEOPHYTE_STATUSES, NEOPHYTE_STATUS_LABELS } from "@/lib/member-constants";
 
 export const metadata: Metadata = { title: "Neophyte Status" };
@@ -52,7 +52,7 @@ export default async function AdminNeophytesPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; page?: string; confirmed?: string; removed?: string }>;
 }) {
-  await requireAdmin();
+  await requireFullAdminPage();
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const selectedStatus = NEOPHYTE_STATUSES.includes(params.status as NeophyteStatus) ? (params.status as NeophyteStatus) : "all";

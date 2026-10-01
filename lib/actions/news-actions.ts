@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { newsPosts } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminAction } from "@/lib/officer-access";
 import { uploadNewsCoverServer } from "@/lib/imagekit-server";
 
 export type NewsActionState = { error?: string; success?: string };
@@ -68,7 +68,7 @@ export async function createNewsPostAction(
   _previousState: NewsActionState,
   formData: FormData,
 ): Promise<NewsActionState> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
 
   const title = requiredText(formData, "title");
   const category = requiredText(formData, "category") || "News";
@@ -152,7 +152,7 @@ export async function updateNewsPostAction(
   _previousState: NewsActionState,
   formData: FormData,
 ): Promise<NewsActionState> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
   const id = postId(formData);
   if (!UUID_PATTERN.test(id)) {
     return { error: "Missing or invalid post reference." };
@@ -260,7 +260,7 @@ export async function updateNewsPostAction(
 
 /** Publishes a draft so it appears on the public site. */
 export async function publishNewsPostAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
   const id = postId(formData);
   if (!UUID_PATTERN.test(id)) return;
 
@@ -280,7 +280,7 @@ export async function publishNewsPostAction(formData: FormData): Promise<void> {
 
 /** Sends a published post back to draft. */
 export async function unpublishNewsPostAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireFullAdminAction();
   const id = postId(formData);
   if (!UUID_PATTERN.test(id)) return;
 
@@ -303,7 +303,7 @@ export async function unpublishNewsPostAction(formData: FormData): Promise<void>
 
 /** Permanently removes a news/blog post. */
 export async function deleteNewsPostAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireFullAdminAction();
   const id = postId(formData);
   if (!UUID_PATTERN.test(id)) return;
 

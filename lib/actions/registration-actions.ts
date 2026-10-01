@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { eq, sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers, registrations } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminAction } from "@/lib/officer-access";
 import { buildMemberId } from "@/lib/member-id";
 
 export type ReviewFormState = {
@@ -17,7 +17,7 @@ export async function approveRegistrationAction(
   _prevState: ReviewFormState,
   formData: FormData,
 ): Promise<ReviewFormState> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
   const registrationId = String(formData.get("registrationId") ?? "");
   if (!registrationId) return { error: "Missing application reference." };
 
@@ -109,7 +109,7 @@ export async function rejectRegistrationAction(
   _prevState: ReviewFormState,
   formData: FormData,
 ): Promise<ReviewFormState> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
   const registrationId = String(formData.get("registrationId") ?? "");
   if (!registrationId) return { error: "Missing application reference." };
 
@@ -139,7 +139,7 @@ export async function rejectRegistrationAction(
 }
 
 export async function deleteRegistrationAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireFullAdminAction();
   const registrationId = String(formData.get("registrationId") ?? "");
   if (!registrationId) return;
 

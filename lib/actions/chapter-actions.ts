@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { chapters } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminAction } from "@/lib/officer-access";
 import { uploadChapterLogoServer } from "@/lib/imagekit-server";
 
 export type ChapterActionState = { error?: string; success?: string };
@@ -43,7 +43,7 @@ function revalidateChapterPaths(id?: string) {
 
 /** Publishes a pending chapter so it appears on the public site. */
 export async function publishChapterAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
   const id = chapterId(formData);
   if (!UUID_PATTERN.test(id)) return;
 
@@ -63,7 +63,7 @@ export async function publishChapterAction(formData: FormData): Promise<void> {
 
 /** Sends a published chapter back to the pending review queue. */
 export async function unpublishChapterAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
   const id = chapterId(formData);
   if (!UUID_PATTERN.test(id)) return;
 
@@ -82,7 +82,7 @@ export async function unpublishChapterAction(formData: FormData): Promise<void> 
 
 /** Permanently removes a chapter registration. */
 export async function deleteChapterAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireFullAdminAction();
   const id = chapterId(formData);
   if (!UUID_PATTERN.test(id)) return;
 
@@ -135,7 +135,7 @@ export async function updateChapterAction(
   _previousState: ChapterActionState,
   formData: FormData,
 ): Promise<ChapterActionState> {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdminAction();
   const id = chapterId(formData);
   if (!UUID_PATTERN.test(id)) return { error: "Missing or invalid chapter reference." };
 

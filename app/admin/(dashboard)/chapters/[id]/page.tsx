@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { chapters, pgpmembers } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
 import ChapterEditForm, { type ChapterEditOfficials } from "@/components/admin/chapter-edit-form";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminPage } from "@/lib/officer-access";
 
 export const metadata: Metadata = { title: "Edit Chapter" };
 
@@ -23,7 +23,7 @@ export default async function EditChapterPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  await requireFullAdminPage();
   const { id } = await params;
 
   const [row] = await db

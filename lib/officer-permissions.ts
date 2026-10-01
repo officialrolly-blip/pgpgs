@@ -108,13 +108,6 @@ export function canEditMembers(user: SessionOfficer): boolean {
   );
 }
 
-/**
- * Everyone who can sign in to /admin can open the member directory and the
- * contributions ledger. The restriction is on editing, not on viewing: the rows
- * a scoped officer sees are narrowed to their chapter by the page's chapter
- * scope filter, not by a permission gate.
- */
-
 /** Treasurer side (plus full admins) may record / generate payments. */
 export function canRecordContributions(user: SessionOfficer): boolean {
   return (
