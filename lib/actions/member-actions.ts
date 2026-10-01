@@ -6,6 +6,7 @@ import { eq, sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import { canEditMembers, scopeChapterFor } from "@/lib/officer-permissions";
 import { buildMemberId } from "@/lib/member-id";
 import { getPublishedChapterNames } from "@/lib/chapters";
 import {
@@ -302,7 +303,10 @@ export async function createMemberAction(
   _prevState: MemberFormState,
   formData: FormData,
 ): Promise<MemberFormState> {
-  await requireAdmin();
+  const viewer = await requireAdmin();
+  if (!canEditMembers(viewer)) {
+    return { error: "Your account has view-only access to members." };
+  }
 
   const validChapterNames = await getPublishedChapterNames();
   const parsed = parseMemberForm(formData, validChapterNames);
@@ -351,10 +355,24 @@ export async function updateMemberAction(
   _prevState: MemberFormState,
   formData: FormData,
 ): Promise<MemberFormState> {
-  await requireAdmin();
+  const viewer = await requireAdmin();
+  if (!canEditMembers(viewer)) {
+    return { error: "Your account has view-only access to members." };
+  }
 
   const memberId = String(formData.get("id") ?? "");
   if (!memberId) return { error: "Missing member reference." };
+  const scope = scopeChapterFor(viewer);
+  if (scope) {
+    const [scoped] = await db
+      .select({ chapter: pgpmembers.memberChapter })
+      .from(pgpmembers)
+      .where(eq(pgpmembers.id, memberId))
+      .limit(1);
+    if (scoped && (scoped.chapter ?? "").toLowerCase() !== scope.toLowerCase()) {
+      return { error: "This member belongs to another chapter." };
+    }
+  }
 
   const validChapterNames = await getPublishedChapterNames();
   const parsed = parseMemberForm(formData, validChapterNames);
@@ -381,10 +399,22 @@ export async function updateMemberAction(
 }
 
 export async function deleteMemberAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const viewer = await requireAdmin();
+  if (!canEditMembers(viewer)) throw new Error("View-only account.");
 
   const memberId = String(formData.get("id") ?? "");
   if (!memberId) return;
+  const scope = scopeChapterFor(viewer);
+  if (scope) {
+    const [scoped] = await db
+      .select({ chapter: pgpmembers.memberChapter })
+      .from(pgpmembers)
+      .where(eq(pgpmembers.id, memberId))
+      .limit(1);
+    if (scoped && (scoped.chapter ?? "").toLowerCase() !== scope.toLowerCase()) {
+      throw new Error("This member belongs to another chapter.");
+    }
+  }
 
   await db.delete(pgpmembers).where(eq(pgpmembers.id, memberId));
   revalidateMemberPaths();
@@ -394,7 +424,8 @@ export async function deleteMemberAction(formData: FormData): Promise<void> {
 export async function setOfficerPositionAction(
   formData: FormData,
 ): Promise<void> {
-  await requireAdmin();
+  const viewer = await requireAdmin();
+  if (!canEditMembers(viewer)) throw new Error("View-only account.");
 
   const memberId = String(formData.get("memberId") ?? "");
   const position = String(formData.get("officerPosition") ?? "");

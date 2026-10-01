@@ -3,6 +3,7 @@ import Link from "next/link";
 import PageHeading from "@/components/admin/page-heading";
 import ContributionSettingsForms from "@/components/admin/contribution-settings-forms";
 import { requireAdmin } from "@/lib/auth";
+import { canManageContributionSettings, canRecordContributions, roleLabel, scopeLabel } from "@/lib/officer-permissions";
 import { getContributionSettings, getMonthSummary } from "@/lib/contribution-service";
 import {
   billingMonthLabel,
@@ -20,7 +21,7 @@ export type ContributionFilter = (typeof FILTERS)[number];
 export default async function AdminContributionsPage(props: {
   searchParams: Promise<{ q?: string; month?: string; status?: string; page?: string }>;
 }) {
-  await requireAdmin();
+  const viewer = await requireAdmin();
   const params = await props.searchParams;
   const q = params.q?.trim() ?? "";
   const rawMonth = params.month ?? "";
@@ -34,15 +35,20 @@ export default async function AdminContributionsPage(props: {
   const amount = settings.amountCents;
   const dueDay = settings.dueDay;
   const ready = settings.ready;
+  const canRecord = canRecordContributions(viewer);
+  const canManageSettings = canManageContributionSettings(viewer);
+  const scope = viewer.assignedChapter?.trim() || null;
+  const chapterScope =
+    viewer.role === "chapter_secretary" || viewer.role === "chapter_treasurer" ? scope : null;
   return (
     <>
       <PageHeading
         title="Monthly Contributions"
-        description={`Chapter dues ledger — ${formatCentavos(amount)} per member, due every ${dueDay}${sfx(dueDay)} of the month. Showing ${billingMonthLabel(month)}.`}
+        description={`${roleLabel(viewer.role)} · ${chapterScope ?? scopeLabel(viewer)} — ${formatCentavos(amount)} per member, due every ${dueDay}${sfx(dueDay)} of the month. Showing ${billingMonthLabel(month)}.`}
         actions={
           <>
             <Link href="/admin/contributions/receipts" className="a-btn a-btn-secondary">Receipts &amp; arrears →</Link>
-            {ready ? (
+            {ready && canRecord ? (
               <Link
                 href={`/admin/contributions/record-payment?month=${encodeURIComponent(month)}`}
                 className="a-btn a-btn-gold"
@@ -54,10 +60,10 @@ export default async function AdminContributionsPage(props: {
         }
       />
       {!ready ? <MigrationNotice /> : null}
-      <SummaryRow month={month} ready={ready} />
+      <SummaryRow month={month} ready={ready} chapterScope={chapterScope} />
       <div className="mt-5 space-y-5">
-        <ContributionLedgerSection month={month} q={q} status={status} page={page} ready={ready} />
-        {ready ? <ContributionSettingsForms monthlyAmountCents={amount} dueDay={dueDay} currentMonth={month} /> : null}
+        <ContributionLedgerSection month={month} q={q} status={status} page={page} ready={ready} chapterScope={chapterScope} canDelete={canManageSettings} />
+        {ready && canManageSettings ? <ContributionSettingsForms monthlyAmountCents={amount} dueDay={dueDay} currentMonth={month} /> : null}
       </div>
     </>
   );
@@ -74,8 +80,8 @@ function MigrationNotice() {
   );
 }
 
-async function SummaryRow({ month, ready }: { month: string; ready: boolean }) {
-  const summary = ready ? await getMonthSummary(month) : null;
+async function SummaryRow({ month, ready, chapterScope }: { month: string; ready: boolean; chapterScope: string | null }) {
+  const summary = ready ? await getMonthSummary(month, chapterScope) : null;
   const billed = summary?.billed ?? 0;
   const paid = summary?.paid ?? 0;
   const partial = summary?.partial ?? 0;

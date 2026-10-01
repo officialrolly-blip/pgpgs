@@ -7,40 +7,53 @@ import type { ReactNode } from "react";
 import LogoutButton from "@/components/admin/logout-button";
 import { logoutAction } from "@/lib/actions/auth-actions";
 
-type NavLink = { label: string; href: string; icon: string; badge?: "pending" | "unread" };
+type NavLink = { label: string; href: string; icon: string; badge?: "pending" | "unread"; roles?: string[] };
+
+const ROLE_FULL = ["superadmin", "admin"];
+const ROLE_OFFICER_ALL = [
+  "superadmin",
+  "admin",
+  "provincial_secretary",
+  "provincial_treasurer",
+  "chapter_secretary",
+  "chapter_treasurer",
+];
 
 const navSections: { caption: string; links: NavLink[] }[] = [
   {
     caption: "Overview",
-    links: [{ label: "Overview", href: "/admin", icon: "grid" }],
+    links: [{ label: "Overview", href: "/admin", icon: "grid", roles: ROLE_OFFICER_ALL }],
   },
   {
     caption: "Community",
     links: [
-      { label: "Members", href: "/admin/members", icon: "users" },
-      { label: "Applications", href: "/admin/registrations", icon: "inbox", badge: "pending" },
-      { label: "Inbox", href: "/admin/inbox", icon: "mail", badge: "unread" },
-      { label: "Neophyte status", href: "/admin/neophytes", icon: "spark" },
+      { label: "Members", href: "/admin/members", icon: "users", roles: ROLE_OFFICER_ALL },
+      { label: "Applications", href: "/admin/registrations", icon: "inbox", badge: "pending", roles: ROLE_FULL },
+      { label: "Inbox", href: "/admin/inbox", icon: "mail", badge: "unread", roles: ROLE_FULL },
+      { label: "Neophyte status", href: "/admin/neophytes", icon: "spark", roles: ROLE_FULL },
     ],
   },
   {
     caption: "Organization",
     links: [
-      { label: "Officers", href: "/admin/officials", icon: "badge" },
-      { label: "Chapters", href: "/admin/chapters", icon: "pin" },
-      { label: "Contributions", href: "/admin/contributions", icon: "peso" },
+      { label: "Officers", href: "/admin/officials", icon: "badge", roles: ROLE_FULL },
+      { label: "Chapters", href: "/admin/chapters", icon: "pin", roles: ROLE_FULL },
+      { label: "Contributions", href: "/admin/contributions", icon: "peso", roles: ROLE_OFFICER_ALL },
     ],
   },
   {
     caption: "Content & tools",
     links: [
-      { label: "PGPGS ID", href: "/admin/ids", icon: "id" },
-      { label: "News & Events", href: "/admin/news", icon: "news" },
+      { label: "PGPGS ID", href: "/admin/ids", icon: "id", roles: ROLE_FULL },
+      { label: "News & Events", href: "/admin/news", icon: "news", roles: ROLE_FULL },
     ],
   },
   {
     caption: "System",
-    links: [{ label: "Settings", href: "/admin/settings", icon: "gear" }],
+    links: [
+      { label: "Officer accounts", href: "/admin/officer-accounts", icon: "key", roles: ["superadmin"] },
+      { label: "Settings", href: "/admin/settings", icon: "gear", roles: ROLE_OFFICER_ALL },
+    ],
   },
 ];
 
@@ -65,6 +78,7 @@ function NavIcon({ name }: { name: string }) {
     id: "M3 5h18v14H3zM3 10h18M7 14h5",
     peso: "M15 4H6v16h3v-6h4l2 2v4h3v-6l-2.5-2L18 10V4zM9 7h3v4H9z",
     gear: "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.5 1.5-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.1v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.5-1.5.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H7v-2.1h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V5h2.1v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2v2.1h-.2a1.7 1.7 0 0 0-1.5 1Z",
+    key: "M14 10a4 4 0 1 0-4 4c.5 0 1-.1 1.4-.3L13 15h2v2h2v2h3v-3l-5.3-5.3c.2-.4.3-.9.3-1.4ZM9.5 10a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z",
   };
   return (
     <svg
@@ -82,7 +96,26 @@ function NavIcon({ name }: { name: string }) {
   );
 }
 
-type ShellUser = { name: string; email: string; role: string };
+type ShellUser = { name: string; email: string; role: string; assignedChapter?: string | null; officerTitle?: string | null };
+
+function prettyRole(role: string): string {
+  switch (role) {
+    case "superadmin":
+      return "Superadmin";
+    case "admin":
+      return "Admin";
+    case "provincial_secretary":
+      return "Provincial Secretary";
+    case "provincial_treasurer":
+      return "Provincial Treasurer";
+    case "chapter_secretary":
+      return "Chapter Secretary";
+    case "chapter_treasurer":
+      return "Chapter Treasurer";
+    default:
+      return role;
+  }
+}
 
 export default function AdminShell({
   user,
@@ -109,15 +142,35 @@ export default function AdminShell({
   const isActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
-  const allLinks = navSections.flatMap((section) => section.links);
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      links: section.links.filter((link) => !link.roles || link.roles.includes(user.role)),
+    }))
+    .filter((section) => section.links.length > 0);
+
+  const allLinks = visibleSections.flatMap((section) => section.links);
   const pageTitle =
     allLinks.find((link) => isActive(link.href))?.label ?? "Dashboard";
   const badgeFor = (link: NavLink) =>
     link.badge === "pending" ? pendingCount : link.badge === "unread" ? unreadInboxCount : 0;
 
+  const roleLabel = user.officerTitle || prettyRole(user.role);
+  const scopeLabel = user.assignedChapter
+    ? user.assignedChapter
+    : user.role.startsWith("provincial")
+      ? "All chapters · Provincial"
+      : user.role.startsWith("chapter")
+        ? "Assigned chapter"
+        : "All chapters";
+
   const nav = (
     <nav aria-label="Admin" className="a-scroll flex-1 overflow-y-auto px-3 pb-4">
-      {navSections.map((section) => (
+      <div className="mx-1 mb-2 rounded-xl bg-[var(--a-sidebar-raised)] px-3 py-2.5">
+        <p className="truncate text-xs font-bold text-white">{roleLabel}</p>
+        <p className="truncate text-[11px] text-white/55">{scopeLabel}</p>
+      </div>
+      {visibleSections.map((section) => (
         <div key={section.caption}>
           <p className="a-sidebar-caption">{section.caption}</p>
           {section.links.map((link) => {

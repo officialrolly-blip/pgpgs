@@ -9,6 +9,7 @@ import MemberDirectorySearch from "@/components/admin/member-directory-search";
 import { deleteMemberAction } from "@/lib/actions/member-actions";
 import { requireAdmin } from "@/lib/auth";
 import { MEMBER_STATUSES } from "@/lib/member-constants";
+import { canEditMembers, roleLabel, scopeLabel } from "@/lib/officer-permissions";
 
 export const metadata: Metadata = {
   title: "Members",
@@ -21,14 +22,19 @@ export default async function AdminMembersPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; page?: string; created?: string; deleted?: string }>;
 }) {
-  await requireAdmin();
+  const viewer = await requireAdmin();
   const params = await searchParams;
-
   const q = params.q?.trim() ?? "";
   const status = params.status?.trim() ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
+  const canEdit = canEditMembers(viewer);
+  const scope = viewer.assignedChapter?.trim() || null;
+  const chapterScoped = Boolean(
+    (viewer.role === "chapter_secretary" || viewer.role === "chapter_treasurer") && scope,
+  );
 
   const conditions = [ne(pgpmembers.status, "Neophyte")];
+  if (chapterScoped && scope) conditions.push(eq(pgpmembers.memberChapter, scope));
   if (q) {
     const pattern = `%${q}%`;
     const searchCondition = or(
@@ -122,11 +128,17 @@ export default async function AdminMembersPage({
               {bannerStats?.officers === 1 ? "officer" : "officers"} · {bannerStats?.alumni ?? 0}{" "}
               {bannerStats?.alumni === 1 ? "alumnus" : "alumni"}
             </p>
+            <p className="mt-1.5 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85">
+              {roleLabel(viewer.role)} · {chapterScoped && scope ? scope : scopeLabel(viewer)}
+              {canEdit ? "" : " · view-only"}
+            </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2.5">
-            <Link href="/admin/members/new" className="a-btn a-btn-gold">
-              + Add member
-            </Link>
+            {canEdit ? (
+              <Link href="/admin/members/new" className="a-btn a-btn-gold">
+                + Add member
+              </Link>
+            ) : null}
             <Link href="/admin/neophytes" className="a-btn border-white/25 bg-white/10 text-white transition hover:bg-white/20">
               Neophyte portal →
             </Link>
@@ -169,7 +181,7 @@ export default async function AdminMembersPage({
         totalCount={totalCount}
       />
 
-      <MembersTable members={members} buildPageHref={buildPageHref} currentPage={currentPage} totalPages={totalPages} />
+      <MembersTable members={members} buildPageHref={buildPageHref} currentPage={currentPage} totalPages={totalPages} canEdit={canEdit} />
     </>
   );
 }
@@ -179,6 +191,7 @@ function MembersTable({
   buildPageHref,
   currentPage,
   totalPages,
+  canEdit,
 }: {
   members: {
     id: string;
@@ -195,6 +208,7 @@ function MembersTable({
   buildPageHref: (page: number) => string;
   currentPage: number;
   totalPages: number;
+  canEdit: boolean;
 }) {
   return (
     <>
@@ -254,17 +268,19 @@ function MembersTable({
                         href={`/admin/members/${member.id}`}
                         className="a-btn a-btn-secondary a-btn-sm"
                       >
-                        Edit
+                        {canEdit ? "Edit" : "View"}
                       </Link>
-                      <form action={deleteMemberAction}>
-                        <input type="hidden" name="id" value={member.id} />
-                        <ConfirmSubmitButton
-                          message={`Delete ${member.firstName} ${member.lastName} (${member.memberId})? This cannot be undone.`}
-                          className="a-btn a-btn-danger a-btn-sm"
-                        >
-                          Delete
-                        </ConfirmSubmitButton>
-                      </form>
+                      {canEdit ? (
+                        <form action={deleteMemberAction}>
+                          <input type="hidden" name="id" value={member.id} />
+                          <ConfirmSubmitButton
+                            message={`Delete ${member.firstName} ${member.lastName} (${member.memberId})? This cannot be undone.`}
+                            className="a-btn a-btn-danger a-btn-sm"
+                          >
+                            Delete
+                          </ConfirmSubmitButton>
+                        </form>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

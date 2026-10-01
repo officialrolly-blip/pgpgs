@@ -21,6 +21,7 @@
     "db:migrate-news-posts": "tsx scripts/apply-news-posts-migration.ts",
     "db:migrate-contact-messages": "tsx scripts/apply-contact-messages-migration.ts",
     "db:migrate-contributions": "tsx scripts/apply-contributions-migration.ts",
+    "db:migrate-officers": "tsx scripts/apply-officer-roles-migration.ts",
     "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {

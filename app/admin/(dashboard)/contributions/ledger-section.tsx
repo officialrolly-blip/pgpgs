@@ -6,7 +6,7 @@ import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import { deleteContributionAction } from "@/lib/actions/contribution-actions";
 import type { ContributionFilter } from "./page";
 
-type Props = { month: string; q: string; status: ContributionFilter; page: number; ready: boolean };
+type Props = { month: string; q: string; status: ContributionFilter; page: number; ready: boolean; chapterScope?: string | null; canDelete?: boolean };
 
 type Row = LedgerRow;
 
@@ -38,6 +38,7 @@ export default async function ContributionLedgerSection(p: Props) {
       q: p.q,
       status: p.status,
       page: p.page,
+      chapterScope: p.chapterScope ?? null,
     });
     rows = result.rows;
     total = result.total;
@@ -107,10 +108,12 @@ function LedgerView(p2: {
                   <td className="a-td text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/admin/contributions/receipts?member=${row.memberPk}`} className="a-btn a-btn-secondary a-btn-sm">Receipt</Link>
-                      <form action={deleteContributionAction}>
-                        <input type="hidden" name="contributionId" value={row.id} />
-                        <ConfirmSubmitButton message="Delete this dues record?" className="a-btn a-btn-danger a-btn-sm">Delete</ConfirmSubmitButton>
-                      </form>
+                      {p.canDelete === false ? null : (
+                        <form action={deleteContributionAction}>
+                          <input type="hidden" name="contributionId" value={row.id} />
+                          <ConfirmSubmitButton message="Delete this dues record?" className="a-btn a-btn-danger a-btn-sm">Delete</ConfirmSubmitButton>
+                        </form>
+                      )}
                     </div>
                   </td>
                 </tr>

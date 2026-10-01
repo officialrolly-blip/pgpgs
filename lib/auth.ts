@@ -29,6 +29,8 @@ export type AdminUser = {
   email: string;
   name: string;
   role: string;
+  assignedChapter?: string | null;
+  officerTitle?: string | null;
 };
 
 export type AdminRequestMeta = {
@@ -169,6 +171,8 @@ export async function authenticateAdmin(
       email: account.email,
       name: account.name,
       role: account.role,
+      assignedChapter: (account as { assignedChapter?: string | null }).assignedChapter ?? null,
+      officerTitle: (account as { officerTitle?: string | null }).officerTitle ?? null,
     },
   };
 }
@@ -196,19 +200,51 @@ export async function clearSessionCookie(): Promise<void> {
  * simply stops matching until logout or natural expiry — see destroySession).
  */
 async function findAdminUserBySessionToken(token: string): Promise<AdminUser | null> {
-  const [row] = await db
-    .select({
-      id: adminUsers.id,
-      email: adminUsers.email,
-      name: adminUsers.name,
-      role: adminUsers.role,
-      isActive: adminUsers.isActive,
-      expiresAt: adminSessions.expiresAt,
-    })
-    .from(adminSessions)
-    .innerJoin(adminUsers, eq(adminSessions.userId, adminUsers.id))
-    .where(eq(adminSessions.tokenHash, hashToken(token)))
-    .limit(1);
+  let row: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    assignedChapter: string | null;
+    officerTitle: string | null;
+    isActive: boolean;
+    expiresAt: Date;
+  } | undefined;
+  try {
+    [row] = await db
+      .select({
+        id: adminUsers.id,
+        email: adminUsers.email,
+        name: adminUsers.name,
+        role: adminUsers.role,
+        assignedChapter: adminUsers.assignedChapter,
+        officerTitle: adminUsers.officerTitle,
+        isActive: adminUsers.isActive,
+        expiresAt: adminSessions.expiresAt,
+      })
+      .from(adminSessions)
+      .innerJoin(adminUsers, eq(adminSessions.userId, adminUsers.id))
+      .where(eq(adminSessions.tokenHash, hashToken(token)))
+      .limit(1);
+  } catch {
+    // Older databases may not have the officer-role columns yet — fall back
+    // to the legacy column set until `npm run db:migrate-officers` is run.
+    const [legacy] = await db
+      .select({
+        id: adminUsers.id,
+        email: adminUsers.email,
+        name: adminUsers.name,
+        role: adminUsers.role,
+        isActive: adminUsers.isActive,
+        expiresAt: adminSessions.expiresAt,
+      })
+      .from(adminSessions)
+      .innerJoin(adminUsers, eq(adminSessions.userId, adminUsers.id))
+      .where(eq(adminSessions.tokenHash, hashToken(token)))
+      .limit(1);
+    if (!legacy) return null;
+    row = { ...legacy, assignedChapter: null, officerTitle: null };
+  }
 
   if (!row) return null;
   if (row.expiresAt <= new Date() || !row.isActive) {
@@ -218,7 +254,14 @@ async function findAdminUserBySessionToken(token: string): Promise<AdminUser | n
     return null;
   }
 
-  return { id: row.id, email: row.email, name: row.name, role: row.role };
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    assignedChapter: row.assignedChapter ?? null,
+    officerTitle: row.officerTitle ?? null,
+  };
 }
 
 /** Returns the signed-in admin (validated against the session store) or null. */

@@ -31,7 +31,13 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
   return (
     <div className="admin-shell flex min-h-screen">
       <AdminShell
-        user={{ name: user.name, email: user.email, role: user.role }}
+        user={{
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          assignedChapter: user.assignedChapter ?? null,
+          officerTitle: user.officerTitle ?? null,
+        }}
         pendingCount={pendingCount}
         unreadInboxCount={Number(unreadMessages[0]?.value ?? 0)}
       >

@@ -25,6 +25,10 @@ export async function updateContributionSettingsAction(
   formData: FormData,
 ): Promise<ContributionActionState> {
   const admin = await requireAdmin();
+  const { canManageContributionSettings } = await import("@/lib/officer-permissions");
+  if (!canManageContributionSettings(admin)) {
+    return { error: "Only administrators can change contribution settings." };
+  }
   return updateContributionSettings(
     {
       monthlyAmountCents: pesosToCents(formData.get("monthlyAmount")),
@@ -43,7 +47,11 @@ export async function generateMonthlyBillsAction(
   _previousState: ContributionActionState,
   formData: FormData,
 ): Promise<ContributionActionState> {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const { canRecordContributions } = await import("@/lib/officer-permissions");
+  if (!canRecordContributions(admin)) {
+    return { error: "Your account cannot generate bills." };
+  }
   return generateMonthlyBills(text(formData, "billingMonth"));
 }
 
@@ -57,6 +65,24 @@ export async function recordContributionPaymentAction(
   formData: FormData,
 ): Promise<ContributionActionState> {
   const admin = await requireAdmin();
+  const { canRecordContributions, scopeChapterFor } = await import("@/lib/officer-permissions");
+  if (!canRecordContributions(admin)) {
+    return { error: "Your account cannot record contributions." };
+  }
+  const scope = scopeChapterFor(admin);
+  if (scope) {
+    const { db } = await import("@/db");
+    const { pgpmembers } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const [m] = await db
+      .select({ chapter: pgpmembers.memberChapter })
+      .from(pgpmembers)
+      .where(eq(pgpmembers.id, text(formData, "memberPk")))
+      .limit(1);
+    if (m && (m.chapter ?? "").toLowerCase() !== scope.toLowerCase()) {
+      return { error: "This member belongs to another chapter." };
+    }
+  }
   return recordContributionPayment(
     {
       memberPk: text(formData, "memberPk"),
@@ -73,6 +99,8 @@ export async function recordContributionPaymentAction(
 
 /** Admin: removes a single contribution record (corrections only). */
 export async function deleteContributionAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const { canDeleteContributions } = await import("@/lib/officer-permissions");
+  if (!canDeleteContributions(admin)) throw new Error("Only administrators can delete records.");
   await deleteContributionRecord(text(formData, "contributionId"));
 }

@@ -8,6 +8,8 @@ import CreateAdminForm from "@/components/admin/create-admin-form";
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import { deleteAdminUserAction, setAdminActiveAction } from "@/lib/actions/admin-user-actions";
 import { requireAdmin } from "@/lib/auth";
+import { getAllChapterNames } from "@/lib/chapters";
+import { roleLabel } from "@/lib/officer-permissions";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -17,20 +19,39 @@ export default async function AdminSettingsPage() {
   const admin = await requireAdmin();
   const isSuperadmin = admin.role === "superadmin";
 
-  const admins = isSuperadmin
-    ? await db
-        .select({
-          id: adminUsers.id,
-          email: adminUsers.email,
-          name: adminUsers.name,
-          role: adminUsers.role,
-          isActive: adminUsers.isActive,
-          lastLoginAt: adminUsers.lastLoginAt,
-          lockedUntil: adminUsers.lockedUntil,
-        })
-        .from(adminUsers)
-        .orderBy(asc(adminUsers.name))
-    : [];
+  const [admins, chapters] = await Promise.all([
+    isSuperadmin
+      ? db
+          .select({
+            id: adminUsers.id,
+            email: adminUsers.email,
+            name: adminUsers.name,
+            role: adminUsers.role,
+            assignedChapter: adminUsers.assignedChapter,
+            officerTitle: adminUsers.officerTitle,
+            isActive: adminUsers.isActive,
+            lastLoginAt: adminUsers.lastLoginAt,
+            lockedUntil: adminUsers.lockedUntil,
+          })
+          .from(adminUsers)
+          .orderBy(asc(adminUsers.name))
+          .catch(() =>
+            db
+              .select({
+                id: adminUsers.id,
+                email: adminUsers.email,
+                name: adminUsers.name,
+                role: adminUsers.role,
+                isActive: adminUsers.isActive,
+                lastLoginAt: adminUsers.lastLoginAt,
+                lockedUntil: adminUsers.lockedUntil,
+              })
+              .from(adminUsers)
+              .orderBy(asc(adminUsers.name)),
+          )
+      : [],
+    isSuperadmin ? getAllChapterNames().catch(() => [] as string[]) : [],
+  ]);
 
   return (
     <>
@@ -62,7 +83,7 @@ export default async function AdminSettingsPage() {
         <ChangePasswordForm />
       </section>
 
-      {isSuperadmin ? <AdminAccountsSection currentAdminId={admin.id} admins={admins} /> : null}
+      {isSuperadmin ? <AdminAccountsSection currentAdminId={admin.id} admins={admins} chapters={chapters} /> : null}
     </>
   );
 }
@@ -72,6 +93,8 @@ type AdminRow = {
   email: string;
   name: string;
   role: string;
+  assignedChapter?: string | null;
+  officerTitle?: string | null;
   isActive: boolean;
   lastLoginAt: Date | null;
   lockedUntil: Date | null;
@@ -80,9 +103,11 @@ type AdminRow = {
 function AdminAccountsSection({
   currentAdminId,
   admins,
+  chapters,
 }: {
   currentAdminId: string;
   admins: AdminRow[];
+  chapters: string[];
 }) {
   return (
     <>
@@ -103,9 +128,13 @@ function AdminAccountsSection({
 
       <section className="a-card mt-6 p-5 sm:p-6">
         <h2 className="a-card-title mb-4">
-          Create a new admin account
+          Create a new officer account
         </h2>
-        <CreateAdminForm />
+        <p className="mb-4 text-sm text-a-muted">
+          Provincial officers see the whole directory; chapter officers only see their assigned chapter.
+          Secretaries can add/edit members, treasurers are view-only on members but can record contributions.
+        </p>
+        <CreateAdminForm chapters={chapters} />
       </section>
     </>
   );
@@ -129,7 +158,8 @@ function AdminRowItem({
           ) : null}
         </p>
         <p className="text-xs text-a-muted">
-          {account.email} · <span className="capitalize">{account.role}</span>
+          {account.email} · {account.officerTitle || roleLabel(account.role)}
+          {account.assignedChapter ? ` · ${account.assignedChapter}` : ""}
           {account.lastLoginAt
             ? ` · last signed in ${account.lastLoginAt.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`
             : " · never signed in"}

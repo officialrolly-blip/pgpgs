@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeading from "@/components/admin/page-heading";
 import MemberForm, { emptyMemberForm } from "@/components/admin/member-form";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { canEditMembers } from "@/lib/officer-permissions";
 import { getAllChapterNames } from "@/lib/chapters";
 
 export const metadata: Metadata = {
@@ -10,7 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default async function NewMemberPage() {
-  await requireAdmin();
+  const viewer = await requireAdmin();
+  if (!canEditMembers(viewer)) {
+    redirect("/admin/members");
+  }
   const chapters = await getAllChapterNames();
 
   return (

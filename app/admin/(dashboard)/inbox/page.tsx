@@ -10,7 +10,7 @@ import {
   markMessageReadAction,
   markMessageUnreadAction,
 } from "@/lib/actions/contact-actions";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminPage } from "@/lib/officer-access";
 
 export const metadata: Metadata = { title: "Inbox" };
 
@@ -23,7 +23,7 @@ export default async function AdminInboxPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  await requireAdmin();
+  await requireFullAdminPage();
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const status: Status = STATUSES.includes(params.status as Status)

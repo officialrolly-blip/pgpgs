@@ -15,7 +15,12 @@ export const metadata: Metadata = { title: "Record a Payment" };
 export default async function RecordPaymentPage(props: {
   searchParams: Promise<{ month?: string }>;
 }) {
-  await requireAdmin();
+  const viewer = await requireAdmin();
+  const { canRecordContributions } = await import("@/lib/officer-permissions");
+  if (!canRecordContributions(viewer)) {
+    const { redirect } = await import("next/navigation");
+    redirect("/admin/contributions");
+  }
   const params = await props.searchParams;
   const rawMonth = params.month ?? "";
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth) ? rawMonth : currentBillingMonth();

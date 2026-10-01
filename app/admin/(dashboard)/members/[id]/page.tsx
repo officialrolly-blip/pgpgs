@@ -11,6 +11,7 @@ import MemberForm, {
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import { deleteMemberAction } from "@/lib/actions/member-actions";
 import { requireAdmin } from "@/lib/auth";
+import { canEditMembers } from "@/lib/officer-permissions";
 import { getAllChapterNames } from "@/lib/chapters";
 
 export const metadata: Metadata = {
@@ -22,9 +23,14 @@ export default async function EditMemberPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  const viewer = await requireAdmin();
   const { id } = await params;
   const chapters = await getAllChapterNames();
+  const canEdit = canEditMembers(viewer);
+  const scope = viewer.assignedChapter?.trim() || null;
+  const chapterScoped = Boolean(
+    (viewer.role === "chapter_secretary" || viewer.role === "chapter_treasurer") && scope,
+  );
 
   const [member] = await db
     .select()
@@ -33,6 +39,9 @@ export default async function EditMemberPage({
     .limit(1);
 
   if (!member) notFound();
+  if (chapterScoped && scope && (member.memberChapter ?? "").toLowerCase() !== scope.toLowerCase()) {
+    notFound();
+  }
 
   const initial: MemberFormValues = {
     id: member.id,
@@ -91,19 +100,26 @@ export default async function EditMemberPage({
             <Link href="/admin/members" className="a-btn a-btn-secondary">
               ← Back
             </Link>
-            <form action={deleteMemberAction}>
-              <input type="hidden" name="id" value={member.id} />
-              <ConfirmSubmitButton
-                message={`Delete ${member.firstName} ${member.lastName} (${member.memberId})? This cannot be undone.`}
-                className="a-btn a-btn-danger"
-              >
-                Delete
-              </ConfirmSubmitButton>
-            </form>
+            {canEdit ? (
+              <form action={deleteMemberAction}>
+                <input type="hidden" name="id" value={member.id} />
+                <ConfirmSubmitButton
+                  message={`Delete ${member.firstName} ${member.lastName} (${member.memberId})? This cannot be undone.`}
+                  className="a-btn a-btn-danger"
+                >
+                  Delete
+                </ConfirmSubmitButton>
+              </form>
+            ) : null}
           </>
         }
       />
-      <MemberForm mode="edit" initial={initial} chapters={chapters} />
+      {!canEdit ? (
+        <p role="note" className="a-card mb-5 border border-a-warning/40 bg-a-warning-soft/50 px-4 py-3 text-sm text-a-warning">
+          You have view-only access — contact your secretary or administrator to update this record.
+        </p>
+      ) : null}
+      <MemberForm mode="edit" initial={initial} chapters={chapters} readOnly={!canEdit} />
     </>
   );
 }

@@ -8,7 +8,7 @@ import PageHeading from "@/components/admin/page-heading";
 import RegistrationReview from "@/components/admin/registration-review";
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import { deleteRegistrationAction } from "@/lib/actions/registration-actions";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminPage } from "@/lib/officer-access";
 
 export const metadata: Metadata = { title: "Membership Applications" };
 
@@ -22,7 +22,7 @@ export default async function AdminRegistrationsPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  await requireAdmin();
+  await requireFullAdminPage();
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const status: Status = STATUSES.includes(params.status as Status)

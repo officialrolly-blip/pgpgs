@@ -68,7 +68,9 @@ export const adminUsers = pgTable("admin_users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
-  role: text("role").notNull().default("admin"), // "superadmin" or "admin"
+  role: text("role").notNull().default("admin"), // "superadmin" | "admin" | provincial_secretary | provincial_treasurer | chapter_secretary | chapter_treasurer
+  assignedChapter: text("assigned_chapter"), // chapter name scope for chapter_secretary / chapter_treasurer; null = all chapters
+  officerTitle: text("officer_title"), // display title shown on the badge, e.g. "Provincial Secretary"
   isActive: boolean("is_active").notNull().default(true),
   failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
   lockedUntil: timestamp("locked_until", { withTimezone: true }),

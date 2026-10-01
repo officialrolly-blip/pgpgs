@@ -112,6 +112,7 @@ export async function listContributions(p: {
   status?: ContributionFilter;
   page?: number;
   perPage?: number;
+  chapterScope?: string | null;
 }): Promise<{
   rows: LedgerRow[];
   total: number;
@@ -123,6 +124,7 @@ export async function listContributions(p: {
   const perPage = Math.min(Math.max(Math.trunc(p.perPage ?? 20) || 20, 1), 100);
   try {
     const conds = [eq(monthlyContributions.billingMonth, p.month)];
+    if (p.chapterScope) conds.push(eq(pgpmembers.memberChapter, p.chapterScope));
     if (p.status && p.status !== "all") conds.push(eq(monthlyContributions.status, p.status));
     const q = p.q?.trim();
     if (q) {
@@ -178,10 +180,13 @@ export type MonthSummary = {
 };
 
 /** Collection overview for one billing month (zeros when unavailable). */
-export async function getMonthSummary(month: string): Promise<MonthSummary> {
+export async function getMonthSummary(month: string, chapterScope?: string | null): Promise<MonthSummary> {
   try {
+    const scopeFilter = chapterScope
+      ? ` and member_pk in (select id from pgpmembers where member_chapter = '${chapterScope.replace(/'/g, "''")}')`
+      : "";
     const r = await db.execute<{ a: number; b: number; c: number; d: number; e: number; f: number; g: number }>(
-      `select count(*)::int as a, count(*) filter (where status='paid')::int as b, count(*) filter (where status='partial')::int as c, count(*) filter (where status='unpaid')::int as d, count(*) filter (where status='waived')::int as e, coalesce(sum(amount_paid_cents),0)::int as f, coalesce(sum(amount_due_cents),0)::int as g from monthly_contributions where billing_month='${month}'`,
+      `select count(*)::int as a, count(*) filter (where status='paid')::int as b, count(*) filter (where status='partial')::int as c, count(*) filter (where status='unpaid')::int as d, count(*) filter (where status='waived')::int as e, coalesce(sum(amount_paid_cents),0)::int as f, coalesce(sum(amount_due_cents),0)::int as g from monthly_contributions where billing_month='${month}'${scopeFilter}`,
     );
     const row = r.rows[0];
     if (!row) {

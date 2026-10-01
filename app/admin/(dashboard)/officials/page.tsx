@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
 import { setOfficerPositionAction } from "@/lib/actions/member-actions";
-import { requireAdmin } from "@/lib/auth";
+import { requireFullAdminPage } from "@/lib/officer-access";
 import { OFFICER_POSITIONS } from "@/lib/member-constants";
 
 export const metadata: Metadata = { title: "Officers" };
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Officers" };
 const inputClass = "a-input";
 
 export default async function AdminOfficialsPage() {
-  await requireAdmin();
+  await requireFullAdminPage();
 
   const [officers, allMembers] = await Promise.all([
     db

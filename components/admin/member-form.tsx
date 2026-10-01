@@ -210,10 +210,12 @@ export default function MemberForm({
   mode,
   initial,
   chapters,
+  readOnly = false,
 }: {
   mode: "create" | "edit";
   initial: MemberFormValues;
   chapters: string[];
+  readOnly?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState<
     MemberFormState,
@@ -274,7 +276,8 @@ export default function MemberForm({
   }
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={readOnly ? undefined : formAction} className="space-y-5">
+      <fieldset disabled={readOnly} className={readOnly ? "opacity-90" : undefined}>
       {mode === "edit" ? (
         <input type="hidden" name="id" value={initial.id} />
       ) : null}
@@ -877,19 +880,14 @@ export default function MemberForm({
         </div>
       </Section>
 
-      <div className="flex justify-end gap-3">
-        <button
-          type="submit"
-          disabled={isPending || uploading}
-          className="a-btn a-btn-primary"
-        >
-          {isPending
-            ? "Saving…"
-            : mode === "create"
-              ? "Create member"
-              : "Save changes"}
-        </button>
-      </div>
+      {readOnly ? null : (
+        <div className="flex justify-end gap-3">
+          <button type="submit" disabled={isPending || uploading} className="a-btn a-btn-primary">
+            {isPending ? "Saving…" : mode === "create" ? "Create member" : "Save changes"}
+          </button>
+        </div>
+      )}
+      </fieldset>
     </form>
   );
 }

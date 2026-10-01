@@ -1,15 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createAdminUserAction, type AdminUserFormState } from "@/lib/actions/admin-user-actions";
+import { OFFICER_ROLE_OPTIONS } from "@/lib/officer-permissions";
 
 const inputClass = "a-input";
 
-export default function CreateAdminForm() {
+export default function CreateAdminForm({ chapters }: { chapters: string[] }) {
   const [state, formAction, isPending] = useActionState<AdminUserFormState, FormData>(
     createAdminUserAction,
     {},
   );
+  const [role, setRole] = useState("admin");
+  const needsChapter = role === "chapter_secretary" || role === "chapter_treasurer";
 
   return (
     <form action={formAction} className="grid gap-4 sm:grid-cols-2">
@@ -25,11 +28,11 @@ export default function CreateAdminForm() {
       ) : null}
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-a-muted">Full name</span>
-        <input name="name" required className={inputClass} />
+        <input name="name" required className={inputClass} placeholder="e.g. Juan Dela Cruz" />
       </label>
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-a-muted">Email</span>
-        <input name="email" type="email" required className={inputClass} />
+        <input name="email" type="email" required className={inputClass} placeholder="officer@example.com" />
       </label>
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-a-muted">
@@ -39,20 +42,47 @@ export default function CreateAdminForm() {
       </label>
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-wide text-a-muted">Role</span>
-        <select name="role" defaultValue="admin" className={inputClass}>
-          <option value="admin">Admin</option>
-          <option value="superadmin">Superadmin</option>
+        <select
+          name="role"
+          value={role}
+          onChange={(event) => setRole(event.target.value)}
+          className={inputClass}
+        >
+          {OFFICER_ROLE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
+        <span className="mt-1 block text-xs text-a-muted">
+          {OFFICER_ROLE_OPTIONS.find((option) => option.value === role)?.hint}
+        </span>
       </label>
+      {needsChapter ? (
+        <label className="block sm:col-span-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-a-muted">
+            Assigned chapter (this officer will only see this chapter)
+          </span>
+          <select name="assignedChapter" required={needsChapter} className={inputClass} defaultValue="">
+            <option value="">Select a chapter…</option>
+            {chapters.map((chapter) => (
+              <option key={chapter} value={chapter}>
+                {chapter}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <div className="sm:col-span-2">
         <button
           type="submit"
           disabled={isPending}
           className="a-btn a-btn-primary"
         >
-          {isPending ? "Creating…" : "Create admin account"}
+          {isPending ? "Creating…" : "Create officer account"}
         </button>
       </div>
     </form>
   );
 }
+
