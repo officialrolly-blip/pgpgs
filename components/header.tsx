@@ -88,7 +88,6 @@ export default function Header() {
               pathname={pathname}
               openMenu={openMenu}
               setOpenMenu={setOpenMenu}
-              align={item.label === "Community Services" ? "right" : "left"}
             />
           ))}
           <Link
@@ -156,13 +155,11 @@ function DesktopItem({
   pathname,
   openMenu,
   setOpenMenu,
-  align,
 }: {
   item: NavItem;
   pathname: string;
   openMenu: string | null;
   setOpenMenu: (label: string | null) => void;
-  align: "left" | "right";
 }) {
   if (!isNavGroup(item)) {
     const active = pathname === item.href;
@@ -174,6 +171,7 @@ function DesktopItem({
             ? "text-[var(--gold)]"
             : "text-white hover:text-[var(--gold)]"
         }`}
+        onMouseEnter={() => setOpenMenu(null)}
       >
         {item.label}
       </Link>
@@ -187,7 +185,6 @@ function DesktopItem({
     <div
       className="relative"
       onMouseEnter={() => setOpenMenu(item.label)}
-      onMouseLeave={() => setOpenMenu(null)}
     >
       <button
         type="button"
@@ -203,24 +200,33 @@ function DesktopItem({
         {item.label}
         <Chevron open={isOpen} />
       </button>
-      <div
-        className={`absolute top-full min-w-[280px] pt-2 ${align === "right" ? "right-0" : "left-0"} ${isOpen ? "visible" : "invisible"}`}
-      >
-        <ul
-          className="overflow-hidden rounded-xl border border-[var(--gold)]/40 bg-[var(--army-green-dark)] py-2 shadow-[0_18px_40px_rgba(58,65,24,0.35)]"
-          role="menu"
-        >
-          {item.children.map((child) => (
-            <DesktopChild
-              key={child.label}
-              item={child}
-              pathname={pathname}
-              openMenu={openMenu}
-              setOpenMenu={setOpenMenu}
-            />
-          ))}
-        </ul>
-      </div>
+      {isOpen ? (
+        <>
+          {/* Blur backdrop covering the page below the header; click closes. */}
+          <div
+            className="fixed inset-x-0 bottom-0 top-[5.125rem] z-40 bg-black/40 backdrop-blur-sm sm:top-[5.375rem]"
+            role="presentation"
+            onMouseDown={() => setOpenMenu(null)}
+          />
+          {/* Dropdown panel centered horizontally below the header. */}
+          <div className="fixed left-1/2 top-[6.125rem] z-50 w-max min-w-[280px] max-w-[min(92vw,520px)] -translate-x-1/2 sm:top-[6.375rem]">
+            <ul
+              className="overflow-hidden rounded-xl border border-[var(--gold)]/40 bg-[var(--army-green-dark)] py-2 shadow-[0_18px_40px_rgba(58,65,24,0.35)]"
+              role="menu"
+            >
+              {item.children.map((child) => (
+                <DesktopChild
+                  key={child.label}
+                  item={child}
+                  pathname={pathname}
+                  openMenu={openMenu}
+                  setOpenMenu={setOpenMenu}
+                />
+              ))}
+            </ul>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
