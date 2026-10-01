@@ -202,12 +202,6 @@ function DesktopItem({
       </button>
       {isOpen ? (
         <>
-          {/* Blur backdrop covering the page below the header; click closes. */}
-          <div
-            className="fixed inset-x-0 bottom-0 top-[5.125rem] z-40 bg-black/40 backdrop-blur-sm sm:top-[5.375rem]"
-            role="presentation"
-            onMouseDown={() => setOpenMenu(null)}
-          />
           {/* Dropdown panel centered horizontally below the header. */}
           <div className="fixed left-1/2 top-[6.125rem] z-50 w-max min-w-[280px] max-w-[min(92vw,520px)] -translate-x-1/2 sm:top-[6.375rem]">
             <ul
