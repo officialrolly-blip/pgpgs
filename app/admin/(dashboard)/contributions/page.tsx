@@ -37,26 +37,12 @@ export default async function AdminContributionsPage(props: {
   let amount = DEFAULT_MONTHLY_DUES_CENTS;
   let dueDay = DEFAULT_DUES_DUE_DAY;
   let ready = true;
-  let billed = 0, paid = 0, partial = 0, unpaid = 0, waived = 0;
-  let collected = 0, expected = 0;
   try {
     const [s] = await db.select().from(contributionSettings).limit(1);
     if (s) { amount = s.monthlyAmountCents; dueDay = s.dueDay; }
-    const r = await db.execute<{ a: number }>(
-      `select 1 as a from monthly_contributions limit 1`,
-    );
-    void r;
+    // Probe: fails until the 0018 migration has been applied.
+    await db.execute(`select 1 from monthly_contributions limit 1`);
   } catch { ready = false; }
-  if (ready) {
-    try {
-      const r = await db.execute<{ a: number; b: number; c: number }>(
-        `select 1 as a, 2 as b, 3 as c`,
-      );
-      void r;
-    } catch { /* keep defaults */ }
-  }
-  void billed; void paid; void partial; void unpaid; void waived;
-  void collected; void expected;
   return (
     <>
       <PageHeading
@@ -94,7 +80,7 @@ async function SummaryRow({ month, ready }: { month: string; ready: boolean }) {
   if (ready) {
     try {
       const r = await db.execute<{ a: number; b: number; c: number; d: number; e: number; f: number; g: number }>(
-        `select count(*)::int as a, count(*) filter (where status='paid')::int as b, count(*) filter (where status='partial')::int as c, count(*) filter (where status='unpaid')::int as d, count(*) filter (where status='waived')::int as e, coalesce(sum(amount_paid_cents),0)::int) as f, coalesce(sum(amount_due_cents),0)::int as g from monthly_contributions where billing_month='${month}'`,
+        `select count(*)::int as a, count(*) filter (where status='paid')::int as b, count(*) filter (where status='partial')::int as c, count(*) filter (where status='unpaid')::int as d, count(*) filter (where status='waived')::int as e, coalesce(sum(amount_paid_cents),0)::int as f, coalesce(sum(amount_due_cents),0)::int as g from monthly_contributions where billing_month='${month}'`,
       );
       const row = r.rows[0];
       if (row) { billed = row.a; paid = row.b; partial = row.c; unpaid = row.d; waived = row.e; collected = row.f; expected = row.g; }
