@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
-import { db } from "@/db";
-import { monthlyContributions, pgpmembers } from "@/db/schema";
 import { billingMonthLabel, formatCentavos } from "@/lib/contributions";
+import { listContributions, type LedgerRow } from "@/lib/contribution-service";
 
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import { deleteContributionAction } from "@/lib/actions/contribution-actions";
@@ -10,11 +8,7 @@ import type { ContributionFilter } from "./page";
 
 type Props = { month: string; q: string; status: ContributionFilter; page: number; ready: boolean };
 
-type Row = {
-  id: string; billingMonth: string; amountDueCents: number; amountPaidCents: number;
-  status: string; memberDbId: string; memberId: string; firstName: string;
-  middleInitial: string | null; lastName: string;
-};
+type Row = LedgerRow;
 
 const FILTERS: ContributionFilter[] = ["all", "unpaid", "partial", "paid", "waived"];
 
@@ -39,36 +33,16 @@ export default async function ContributionLedgerSection(p: Props) {
   let cur = 1;
   let pages = 1;
   if (p.ready) {
-    try {
-      const conds = [eq(monthlyContributions.billingMonth, p.month)];
-      if (p.status !== "all") conds.push(eq(monthlyContributions.status, p.status));
-      if (p.q) {
-        const pat = `%${p.q}%`;
-        const m = or(ilike(pgpmembers.firstName, pat), ilike(pgpmembers.lastName, pat), ilike(pgpmembers.memberId, pat));
-        if (m) conds.push(m);
-      }
-      const where = and(...conds);
-      const [c] = await db.select({ value: count() }).from(monthlyContributions)
-        .innerJoin(pgpmembers, eq(monthlyContributions.memberPk, pgpmembers.id)).where(where);
-      total = Number(c?.value ?? 0);
-      pages = Math.max(1, Math.ceil(total / 20));
-      cur = Math.min(p.page, pages);
-      rows = await db.select({
-        id: monthlyContributions.id,
-        billingMonth: monthlyContributions.billingMonth,
-        amountDueCents: monthlyContributions.amountDueCents,
-        amountPaidCents: monthlyContributions.amountPaidCents,
-        status: monthlyContributions.status,
-        memberDbId: pgpmembers.id,
-        memberId: pgpmembers.memberId,
-        firstName: pgpmembers.firstName,
-        middleInitial: pgpmembers.middleInitial,
-        lastName: pgpmembers.lastName,
-      }).from(monthlyContributions)
-        .innerJoin(pgpmembers, eq(monthlyContributions.memberPk, pgpmembers.id))
-        .where(where).orderBy(desc(monthlyContributions.updatedAt))
-        .limit(20).offset((cur - 1) * 20);
-    } catch { rows = []; total = 0; }
+    const result = await listContributions({
+      month: p.month,
+      q: p.q,
+      status: p.status,
+      page: p.page,
+    });
+    rows = result.rows;
+    total = result.total;
+    cur = result.page;
+    pages = result.pages;
   }
   return <LedgerView rows={rows} total={total} cur={cur} pages={pages} p={p} href={href} />;
 }
@@ -120,7 +94,7 @@ function LedgerView(p2: {
               {rows.map((row) => (
                 <tr key={row.id}>
                   <td className="a-td">
-                    <Link href={`/admin/members/${row.memberDbId}`} className="group block min-w-0">
+                    <Link href={`/admin/members/${row.memberPk}`} className="group block min-w-0">
                       <span className="block truncate font-semibold text-a-text transition group-hover:text-a-brand">
                         {row.firstName}{row.middleInitial ? ` ${row.middleInitial}.` : ""} {row.lastName}
                       </span>
@@ -132,7 +106,7 @@ function LedgerView(p2: {
                   <td className="a-td"><span className={`a-badge ${badge(row.status)}`}>{row.status}</span></td>
                   <td className="a-td text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Link href={`/admin/contributions/receipts?member=${row.memberDbId}`} className="a-btn a-btn-secondary a-btn-sm">Receipt</Link>
+                      <Link href={`/admin/contributions/receipts?member=${row.memberPk}`} className="a-btn a-btn-secondary a-btn-sm">Receipt</Link>
                       <form action={deleteContributionAction}>
                         <input type="hidden" name="contributionId" value={row.id} />
                         <ConfirmSubmitButton message="Delete this dues record?" className="a-btn a-btn-danger a-btn-sm">Delete</ConfirmSubmitButton>

@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { db } from "@/db";
-import { contributionSettings } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
 import ContributionSettingsForms from "@/components/admin/contribution-settings-forms";
 import { requireAdmin } from "@/lib/auth";
+import { getContributionSettings, getMonthSummary } from "@/lib/contribution-service";
 import {
-  DEFAULT_DUES_DUE_DAY,
-  DEFAULT_MONTHLY_DUES_CENTS,
   billingMonthLabel,
   currentBillingMonth,
   formatCentavos,
@@ -33,15 +30,10 @@ export default async function AdminContributionsPage(props: {
     ? (rawStatus as ContributionFilter) : "all";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
 
-  let amount = DEFAULT_MONTHLY_DUES_CENTS;
-  let dueDay = DEFAULT_DUES_DUE_DAY;
-  let ready = true;
-  try {
-    const [s] = await db.select().from(contributionSettings).limit(1);
-    if (s) { amount = s.monthlyAmountCents; dueDay = s.dueDay; }
-    // Probe: fails until the 0018 migration has been applied.
-    await db.execute(`select 1 from monthly_contributions limit 1`);
-  } catch { ready = false; }
+  const settings = await getContributionSettings();
+  const amount = settings.amountCents;
+  const dueDay = settings.dueDay;
+  const ready = settings.ready;
   return (
     <>
       <PageHeading
@@ -83,17 +75,14 @@ function MigrationNotice() {
 }
 
 async function SummaryRow({ month, ready }: { month: string; ready: boolean }) {
-  let billed = 0, paid = 0, partial = 0, unpaid = 0, waived = 0;
-  let collected = 0, expected = 0;
-  if (ready) {
-    try {
-      const r = await db.execute<{ a: number; b: number; c: number; d: number; e: number; f: number; g: number }>(
-        `select count(*)::int as a, count(*) filter (where status='paid')::int as b, count(*) filter (where status='partial')::int as c, count(*) filter (where status='unpaid')::int as d, count(*) filter (where status='waived')::int as e, coalesce(sum(amount_paid_cents),0)::int as f, coalesce(sum(amount_due_cents),0)::int as g from monthly_contributions where billing_month='${month}'`,
-      );
-      const row = r.rows[0];
-      if (row) { billed = row.a; paid = row.b; partial = row.c; unpaid = row.d; waived = row.e; collected = row.f; expected = row.g; }
-    } catch { /* show zeros */ }
-  }
+  const summary = ready ? await getMonthSummary(month) : null;
+  const billed = summary?.billed ?? 0;
+  const paid = summary?.paid ?? 0;
+  const partial = summary?.partial ?? 0;
+  const unpaid = summary?.unpaid ?? 0;
+  const waived = summary?.waived ?? 0;
+  const collected = summary?.collectedCents ?? 0;
+  const expected = summary?.expectedCents ?? 0;
   const rate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
   return (
     <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Collection overview">

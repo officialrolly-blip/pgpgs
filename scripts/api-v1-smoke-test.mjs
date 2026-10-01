@@ -129,6 +129,16 @@ async function main() {
       meJson.member?.fullName ?? "",
     );
 
+    const myBillsRes = await fetch(`${BASE}/api/v1/contributions/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const myBillsJson = await myBillsRes.json().catch(() => ({}));
+    check(
+      "GET /api/v1/contributions/me with member token → 200",
+      myBillsRes.status === 200 && Array.isArray(myBillsJson.bills),
+      `${myBillsJson.bills?.length ?? 0} bill(s)`,
+    );
+
     const logoutRes = await fetch(`${BASE}/api/v1/auth/logout`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -139,6 +149,96 @@ async function main() {
       headers: { Authorization: `Bearer ${token}` },
     });
     check("Revoked token is rejected → 401", meAfter.status === 401);
+  }
+
+  // --- Admin auth + contributions endpoints -------------------------------
+  const adminMissing = await fetch(`${BASE}/api/v1/auth/admin-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  check("POST /api/v1/auth/admin-login with missing fields → 400", adminMissing.status === 400);
+
+  const badAdminLogin = await fetch(`${BASE}/api/v1/auth/admin-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "no-such-admin@example.com", password: "wrong" }),
+  });
+  check("POST /api/v1/auth/admin-login with invalid credentials → 401", badAdminLogin.status === 401);
+
+  const listNoAuth = await fetch(`${BASE}/api/v1/contributions`);
+  check("GET /api/v1/contributions without admin token → 401", listNoAuth.status === 401);
+
+  const summaryNoAuth = await fetch(`${BASE}/api/v1/contributions/summary`);
+  check("GET /api/v1/contributions/summary without admin token → 401", summaryNoAuth.status === 401);
+
+  const settingsNoAuth = await fetch(`${BASE}/api/v1/contributions/settings`);
+  check("GET /api/v1/contributions/settings without admin token → 401", settingsNoAuth.status === 401);
+
+  const receiptsNoAuth = await fetch(`${BASE}/api/v1/contributions/receipts?member=x`);
+  check("GET /api/v1/contributions/receipts without admin token → 401", receiptsNoAuth.status === 401);
+
+  const deleteNoAuth = await fetch(`${BASE}/api/v1/contributions/00000000-0000-0000-0000-000000000000`, { method: "DELETE" });
+  check("DELETE /api/v1/contributions/{id} without admin token → 401", deleteNoAuth.status === 401);
+
+  // Create a temporary admin session directly in the database (same shape the
+  // admin-login endpoint produces) to exercise the bearer flow, then revoke it
+  // via admin-logout. No other data is modified.
+  const [adminUser] = await sql`
+    SELECT id, email FROM admin_users LIMIT 1
+  `;
+
+  if (!adminUser) {
+    check(
+      "Admin bearer flow (skipped — no admin_users rows yet; create an admin first)",
+      true,
+    );
+  } else {
+    const adminToken = randomBytes(32).toString("base64url");
+    const adminTokenHash = createHash("sha256").update(adminToken).digest("hex");
+    const adminExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    await sql`
+      INSERT INTO admin_sessions (user_id, token_hash, expires_at)
+      VALUES (${adminUser.id}, ${adminTokenHash}, ${adminExpiresAt})
+    `;
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+    const settingsRes = await fetch(`${BASE}/api/v1/contributions/settings`, {
+      headers: adminHeaders,
+    });
+    check(
+      "GET /api/v1/contributions/settings with admin token → 200",
+      settingsRes.status === 200,
+    );
+
+    const listRes = await fetch(`${BASE}/api/v1/contributions`, {
+      headers: adminHeaders,
+    });
+    check(
+      "GET /api/v1/contributions with admin token → 200 (or 503 pre-migration)",
+      listRes.status === 200 || listRes.status === 503,
+      `status ${listRes.status}`,
+    );
+
+    const summaryRes = await fetch(`${BASE}/api/v1/contributions/summary`, {
+      headers: adminHeaders,
+    });
+    check(
+      "GET /api/v1/contributions/summary → 200 (or 503 pre-migration)",
+      summaryRes.status === 200 || summaryRes.status === 503,
+      `status ${summaryRes.status}`,
+    );
+
+    const adminLogoutRes = await fetch(`${BASE}/api/v1/auth/admin-logout`, {
+      method: "POST",
+      headers: adminHeaders,
+    });
+    check("POST /api/v1/auth/admin-logout revokes the admin token", adminLogoutRes.status === 200);
+
+    const settingsAfter = await fetch(`${BASE}/api/v1/contributions/settings`, {
+      headers: adminHeaders,
+    });
+    check("Revoked admin token is rejected → 401", settingsAfter.status === 401);
   }
 
   const failed = results.filter((ok) => !ok).length;

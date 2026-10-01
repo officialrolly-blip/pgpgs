@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { monthlyContributions, pgpmembers } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
 import { requireAdmin } from "@/lib/auth";
+import { getMemberStatement } from "@/lib/contribution-service";
 import { billingMonthLabel, currentBillingMonth, formatCentavos } from "@/lib/contributions";
 
 export const metadata: Metadata = { title: "Receipts & Arrears" };
@@ -44,50 +42,24 @@ function LookupForm(p: { memberParam: string; month: string }) {
   );
 }
 
-type Lite = { id: string; memberId: string; firstName: string; middleInitial: string | null; lastName: string; chapter: string | null };
-type Bill = { billingMonth: string; amountDueCents: number; amountPaidCents: number; status: string; paymentMethod: string | null; referenceNumber: string | null; paidAt: Date | null; recordedBy: string | null };
-
 async function MemberStatement(p: { memberParam: string; month: string }) {
-  let member: Lite | null = null;
-  let bills: Bill[] = [];
-  try {
-    const [m] = await db.select({
-      id: pgpmembers.id, memberId: pgpmembers.memberId,
-      firstName: pgpmembers.firstName, middleInitial: pgpmembers.middleInitial,
-      lastName: pgpmembers.lastName, chapter: pgpmembers.memberChapter,
-    }).from(pgpmembers).where(eq(pgpmembers.id, p.memberParam)).limit(1);
-    member = m ?? null;
-    if (member) {
-      bills = await db.select({
-        billingMonth: monthlyContributions.billingMonth,
-        amountDueCents: monthlyContributions.amountDueCents,
-        amountPaidCents: monthlyContributions.amountPaidCents,
-        status: monthlyContributions.status,
-        paymentMethod: monthlyContributions.paymentMethod,
-        referenceNumber: monthlyContributions.referenceNumber,
-        paidAt: monthlyContributions.paidAt,
-        recordedBy: monthlyContributions.recordedBy,
-      }).from(monthlyContributions).where(eq(monthlyContributions.memberPk, member.id));
-    }
-  } catch {
+  const statement = await getMemberStatement(p.memberParam, p.month);
+  if (statement.migrationNeeded) {
     return (
       <section className="a-card mt-5 border-a-warning/40 bg-a-warning-soft/50 p-5" role="alert">
         <p className="text-sm text-a-secondary">Run <code className="font-mono text-xs">npm run db:migrate-contributions</code> once, then reload.</p>
       </section>
     );
   }
-  if (!member) {
+  if (!statement.member) {
     return (
       <section className="a-card mt-5 p-5" role="status">
         <p className="text-sm text-a-muted">No member found for that reference. Copy the Receipt link from the ledger row instead.</p>
       </section>
     );
   }
-  const name = `${member.firstName}${member.middleInitial ? ` ${member.middleInitial}.` : ""} ${member.lastName}`;
-  const bill = bills.find((b) => b.billingMonth === p.month) ?? null;
-  const arrears = bills.filter((b) => (b.status === "unpaid" || b.status === "partial") && b.billingMonth <= p.month);
-  const owed = arrears.reduce((s, b) => s + Math.max(0, b.amountDueCents - b.amountPaidCents), 0);
-  const lifetime = bills.filter((b) => b.status === "paid").reduce((s, b) => s + b.amountPaidCents, 0);
+  const { member, bill, arrears, owedCents: owed, lifetimeCents: lifetime } = statement;
+  const name = member.name;
   return (
     <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <section className="a-card overflow-hidden" aria-labelledby="receipt-heading">

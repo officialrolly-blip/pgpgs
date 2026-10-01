@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { db } from "@/db";
-import { contributionSettings } from "@/db/schema";
 import PageHeading from "@/components/admin/page-heading";
 import RecordPaymentForm from "@/components/admin/record-payment-form";
 import { requireAdmin } from "@/lib/auth";
+import { getContributionSettings } from "@/lib/contribution-service";
 import {
-  DEFAULT_MONTHLY_DUES_CENTS,
   billingMonthLabel,
   currentBillingMonth,
   formatCentavos,
@@ -22,14 +20,7 @@ export default async function RecordPaymentPage(props: {
   const rawMonth = params.month ?? "";
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth) ? rawMonth : currentBillingMonth();
 
-  let amount = DEFAULT_MONTHLY_DUES_CENTS;
-  let ready = true;
-  try {
-    const [s] = await db.select().from(contributionSettings).limit(1);
-    if (s) amount = s.monthlyAmountCents;
-    // Probe: fails until the 0018 migration has been applied.
-    await db.execute(`select 1 from monthly_contributions limit 1`);
-  } catch { ready = false; }
+  const { amountCents: amount, ready } = await getContributionSettings();
 
   return (
     <>

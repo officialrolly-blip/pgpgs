@@ -189,12 +189,13 @@ export async function clearSessionCookie(): Promise<void> {
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
 
-/** Returns the signed-in admin (validated against the session store) or null. */
-export async function getSessionUser(): Promise<AdminUser | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) return null;
-
+/**
+ * Validates a session token against the admin_sessions store (shared by the
+ * cookie flow and the REST API bearer flow) or null. Stale/invalidated
+ * sessions are deleted from the store; the browser cookie is left alone (it
+ * simply stops matching until logout or natural expiry — see destroySession).
+ */
+async function findAdminUserBySessionToken(token: string): Promise<AdminUser | null> {
   const [row] = await db
     .select({
       id: adminUsers.id,
@@ -211,11 +212,6 @@ export async function getSessionUser(): Promise<AdminUser | null> {
 
   if (!row) return null;
   if (row.expiresAt <= new Date() || !row.isActive) {
-    // Cookies may only be modified inside a Server Action or Route Handler,
-    // and this helper runs during page render (requireAdmin on every admin
-    // page). Invalidate only the database session here; the stale browser
-    // cookie no longer matches any session and is ignored until
-    // destroySession() (logout) removes it or it expires naturally.
     await bestEffortDbCleanup(() =>
       db.delete(adminSessions).where(eq(adminSessions.tokenHash, hashToken(token))),
     );
@@ -223,6 +219,41 @@ export async function getSessionUser(): Promise<AdminUser | null> {
   }
 
   return { id: row.id, email: row.email, name: row.name, role: row.role };
+}
+
+/** Returns the signed-in admin (validated against the session store) or null. */
+export async function getSessionUser(): Promise<AdminUser | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return null;
+  return findAdminUserBySessionToken(token);
+}
+
+/**
+ * Authenticates a REST API request the way the mobile/member API does:
+ * `Authorization: Bearer <token>` first, falling back to the website's
+ * httpOnly admin cookie for same-origin web calls. Never redirects — callers
+ * return a 401 JSON body instead.
+ */
+export async function getAdminSessionUserFromRequest(
+  request: Request,
+): Promise<AdminUser | null> {
+  const header = request.headers.get("authorization") ?? "";
+  const [scheme, token] = header.split(" ");
+  if (scheme?.toLowerCase() === "bearer" && token?.trim()) {
+    return findAdminUserBySessionToken(token.trim());
+  }
+  const cookieStore = await cookies();
+  const cookieToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (cookieToken) return findAdminUserBySessionToken(cookieToken);
+  return null;
+}
+
+/** Revokes the admin session behind a bearer token or raw session token. */
+export async function destroyAdminSessionByToken(token: string): Promise<void> {
+  await bestEffortDbCleanup(() =>
+    db.delete(adminSessions).where(eq(adminSessions.tokenHash, hashToken(token))),
+  );
 }
 
 /** Guard for pages and server actions: redirects to login when unauthenticated. */
