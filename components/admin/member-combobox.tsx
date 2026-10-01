@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export type MemberOption = {
   id: string;
@@ -9,10 +9,13 @@ export type MemberOption = {
   lastName: string;
   middleInitial: string | null;
   status: string;
+  /** Chapter the member belongs to — only returned by authenticated searches. */
+  chapter?: string | null;
+  email?: string | null;
 };
 
 const inputClass =
-  "mt-2 w-full rounded-lg border border-a-border bg-white px-3 py-2.5 text-sm text-a-text outline-none transition placeholder:text-a-muted focus:border-a-brand focus:ring-2 focus:ring-a-brand/15";
+  "mt-2 w-full rounded-lg border border-a-border bg-white px-3 py-2.5 pr-10 text-sm text-a-text outline-none transition placeholder:text-a-muted focus:border-a-brand focus:ring-2 focus:ring-a-brand/15 disabled:bg-black/5";
 
 export function memberDisplayName(member: MemberOption) {
   return `${member.firstName}${member.middleInitial ? ` ${member.middleInitial}` : ""} ${member.lastName}`
@@ -25,18 +28,32 @@ export default function MemberCombobox({
   label,
   selected,
   onSelect,
+  endpoint = "/api/pgpmembers/search",
+  placeholder = "Search member name or ID…",
+  hint,
+  wrapperClassName,
 }: {
   label: string;
   selected: MemberOption | null;
   onSelect: (member: MemberOption | null) => void;
+  /**
+   * Search endpoint. The public one returns identification fields only; admin
+   * forms that need the member's chapter use `/api/admin/member-search`.
+   */
+  endpoint?: string;
+  placeholder?: string;
+  hint?: string;
+  wrapperClassName?: string;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MemberOption[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  const listboxId = useId();
 
   // Close the dropdown when clicking outside of it.
   useEffect(() => {
@@ -67,12 +84,13 @@ export default function MemberCombobox({
       setSearchError("");
       try {
         const response = await fetch(
-          `/api/pgpmembers/search?q=${encodeURIComponent(trimmed)}`,
+          `${endpoint}?q=${encodeURIComponent(trimmed)}`,
           { signal: controller.signal },
         );
         const data = (await response.json()) as { members?: MemberOption[]; error?: string };
         if (!response.ok) throw new Error(data.error ?? "Search failed.");
         setResults(data.members ?? []);
+        setActiveIndex(-1);
       } catch (error) {
         if (error instanceof Error && error.name !== "AbortError") {
           setSearchError(error.message);
@@ -82,17 +100,41 @@ export default function MemberCombobox({
       }
     }, 250);
     return () => clearTimeout(timer);
-  }, [query, isOpen]);
+  }, [query, isOpen, endpoint]);
 
   function choose(member: MemberOption) {
     onSelect(member);
     setIsOpen(false);
     setQuery("");
     setResults([]);
+    setActiveIndex(-1);
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setIsOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+    if (!isOpen || results.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((current) => (current + 1) % results.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((current) => (current - 1 + results.length) % results.length);
+    } else if (event.key === "Enter") {
+      const active = results[activeIndex];
+      if (active) {
+        event.preventDefault();
+        choose(active);
+      }
+    }
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={wrapperClassName ?? "relative"}>
       <span className="text-sm font-semibold text-a-secondary">{label}</span>
 
       {selected ? (
@@ -103,6 +145,7 @@ export default function MemberCombobox({
             </p>
             <p className="truncate text-xs text-a-muted">
               {selected.memberId} · {selected.status}
+              {selected.chapter ? ` · ${selected.chapter}` : ""}
             </p>
           </div>
           <button
@@ -117,16 +160,37 @@ export default function MemberCombobox({
         <>
           <input
             type="text"
+            role="combobox"
+            aria-expanded={isOpen}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              activeIndex >= 0 && results[activeIndex]
+                ? `${listboxId}-option-${activeIndex}`
+                : undefined
+            }
+            aria-busy={isLoading}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
+              setActiveIndex(-1);
               setIsOpen(true);
             }}
             onFocus={() => setIsOpen(true)}
-            placeholder="Search member name or ID…"
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
             className={inputClass}
             autoComplete="off"
           />
+          {isLoading ? (
+            <span
+              role="status"
+              aria-label="Searching members"
+              className="pointer-events-none absolute right-3 top-[2.15rem]"
+            >
+              <span className="block h-4 w-4 animate-spin rounded-full border-2 border-a-brand/25 border-t-a-brand" />
+            </span>
+          ) : null}
           {isOpen ? (
             <div className="a-card absolute inset-x-0 top-full z-20 mt-1 overflow-hidden !rounded-xl p-0">
               {isLoading ? (
@@ -141,18 +205,25 @@ export default function MemberCombobox({
                 </p>
               ) : (
                 <ul
+                  id={listboxId}
                   role="listbox"
                   aria-label={`${label} search results`}
                   className="max-h-56 overflow-y-auto p-1"
                 >
-                  {results.map((member) => (
-                    <li key={member.id}>
+                  {results.map((member, index) => (
+                    <li
+                      key={member.id}
+                      id={`${listboxId}-option-${index}`}
+                      role="option"
+                      aria-selected={index === activeIndex}
+                    >
                       <button
                         type="button"
-                        role="option"
-                        aria-selected={false}
                         onClick={() => choose(member)}
-                        className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-[var(--a-bg)]"
+                        onMouseEnter={() => setActiveIndex(index)}
+                        className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition ${
+                          index === activeIndex ? "bg-[var(--a-bg)]" : "hover:bg-[var(--a-bg)]"
+                        }`}
                       >
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-semibold text-a-text">
@@ -160,6 +231,7 @@ export default function MemberCombobox({
                           </span>
                           <span className="block truncate text-xs text-a-muted">
                             {member.memberId}
+                            {member.chapter ? ` · ${member.chapter}` : ""}
                           </span>
                         </span>
                         <span className="a-badge a-badge-green shrink-0">
@@ -174,6 +246,7 @@ export default function MemberCombobox({
           ) : null}
         </>
       )}
+      {hint ? <span className="mt-1.5 block text-xs text-a-muted">{hint}</span> : null}
     </div>
   );
 }
