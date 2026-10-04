@@ -6,12 +6,18 @@ import {
   getMemberStatement,
 } from "@/lib/contribution-service";
 import { currentBillingMonth } from "@/lib/contributions";
+import { asOfficer } from "@/lib/officer-access";
+import { scopeChapterFor } from "@/lib/officer-permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // REST API v1 — receipt + arrears snapshot for one member (admin).
 //   GET /api/v1/contributions/receipts?member=<memberPk-uuid>&month=YYYY-MM
+//
+// Chapter scoping: a chapter officer asking for a member outside their chapter
+// gets the same 404 as an unknown reference — no cross-chapter financial data,
+// and no way to probe for member existence.
 export async function GET(request: Request) {
   try {
     const admin = await getAdminSessionUserFromRequest(request);
@@ -30,7 +36,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Pick a valid billing month." }, { status: 400 });
     }
 
-    const statement = await getMemberStatement(member, month);
+    const statement = await getMemberStatement(member, month, scopeChapterFor(asOfficer(admin)));
     if (statement.migrationNeeded) {
       return NextResponse.json(
         { error: "The contributions ledger is unavailable right now." },

@@ -7,6 +7,8 @@ import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { canEditMembers, scopeChapterFor } from "@/lib/officer-permissions";
+import { getScopedMember } from "@/lib/officer-access";
+import { chapterNamesEqual } from "@/lib/chapter-names";
 import { buildMemberId } from "@/lib/member-id";
 import { getPublishedChapterNames } from "@/lib/chapters";
 import {
@@ -370,16 +372,11 @@ export async function updateMemberAction(
 
   const memberId = String(formData.get("id") ?? "");
   if (!memberId) return { error: "Missing member reference." };
-  const scope = scopeChapterFor(viewer);
-  if (scope) {
-    const [scoped] = await db
-      .select({ chapter: pgpmembers.memberChapter })
-      .from(pgpmembers)
-      .where(eq(pgpmembers.id, memberId))
-      .limit(1);
-    if (scoped && (scoped.chapter ?? "").toLowerCase() !== scope.toLowerCase()) {
-      return { error: "This member belongs to another chapter." };
-    }
+  // Chapter-scoped officers may only touch their own chapter's records. A null
+  // result covers both "no such member" and "another chapter", so an unknown id
+  // can never fall through to the update below.
+  if (!(await getScopedMember(viewer, memberId))) {
+    return { error: "This member is not available to your account." };
   }
 
   const validChapterNames = await getPublishedChapterNames();
@@ -390,11 +387,9 @@ export async function updateMemberAction(
 
   // The member must stay inside the officer's own chapter: they may not
   // reassign a member into another chapter via the form.
-  if (scope) {
-    const submittedChapter = String(parsed.values.memberChapter ?? "").toLowerCase();
-    if (submittedChapter !== scope.toLowerCase()) {
-      return { error: "You can only keep members within your assigned chapter." };
-    }
+  const scope = scopeChapterFor(viewer);
+  if (scope && !chapterNamesEqual(parsed.values.memberChapter as string | null, scope)) {
+    return { error: "You can only keep members within your assigned chapter." };
   }
 
   const [emailConflict] = await db
@@ -421,16 +416,10 @@ export async function deleteMemberAction(formData: FormData): Promise<void> {
 
   const memberId = String(formData.get("id") ?? "");
   if (!memberId) return;
-  const scope = scopeChapterFor(viewer);
-  if (scope) {
-    const [scoped] = await db
-      .select({ chapter: pgpmembers.memberChapter })
-      .from(pgpmembers)
-      .where(eq(pgpmembers.id, memberId))
-      .limit(1);
-    if (scoped && (scoped.chapter ?? "").toLowerCase() !== scope.toLowerCase()) {
-      throw new Error("This member belongs to another chapter.");
-    }
+  // Same guard as the update path: a missing or out-of-scope record aborts the
+  // delete instead of proceeding.
+  if (!(await getScopedMember(viewer, memberId))) {
+    throw new Error("This member is not available to your account.");
   }
 
   await db.delete(pgpmembers).where(eq(pgpmembers.id, memberId));
@@ -448,6 +437,13 @@ export async function setOfficerPositionAction(
   const position = String(formData.get("officerPosition") ?? "");
   const dateElected = String(formData.get("officerDateElected") ?? "");
   if (!memberId) return;
+
+  // Officer appointments flip a member's status, so the same chapter pin as the
+  // directory applies: a chapter secretary may only appoint within their own
+  // chapter, never province-wide via a crafted POST.
+  if (!(await getScopedMember(viewer, memberId))) {
+    throw new Error("This member is not available to your account.");
+  }
 
   if (!position) {
     // Clearing the officer position also moves the member out of the

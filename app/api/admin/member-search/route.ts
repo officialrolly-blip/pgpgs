@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { asc, ilike, or } from "drizzle-orm";
+import { and, asc, ilike, or, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import { getSessionUser } from "@/lib/auth";
+import { chapterMatches } from "@/lib/chapters";
+import { asOfficer } from "@/lib/officer-access";
+import { scopeChapterFor } from "@/lib/officer-permissions";
 
 export const runtime = "nodejs";
 
@@ -11,6 +14,10 @@ export const runtime = "nodejs";
 // chapter). Requires an active admin session — unlike the public
 // /api/pgpmembers/search endpoint — because the chapter and contact email are
 // admin-only directory data.
+//
+// Chapter scoping: chapter_secretary / chapter_treasurer are pinned to their
+// assigned chapter, so the suggestions (and the chapter + email fields they
+// carry) never include members from other chapters.
 export async function GET(request: Request) {
   const admin = await getSessionUser();
   if (!admin) {
@@ -27,6 +34,18 @@ export async function GET(request: Request) {
     }
 
     const pattern = `%${query}%`;
+    const search = or(
+      ilike(pgpmembers.firstName, pattern),
+      ilike(pgpmembers.lastName, pattern),
+      ilike(pgpmembers.memberId, pattern),
+    );
+    const conditions: SQL[] = search ? [search] : [];
+    const chapterCondition = chapterMatches(
+      pgpmembers.memberChapter,
+      scopeChapterFor(asOfficer(admin)),
+    );
+    if (chapterCondition) conditions.push(chapterCondition);
+
     const members = await db
       .select({
         id: pgpmembers.id,
@@ -41,13 +60,7 @@ export async function GET(request: Request) {
         email: pgpmembers.email,
       })
       .from(pgpmembers)
-      .where(
-        or(
-          ilike(pgpmembers.firstName, pattern),
-          ilike(pgpmembers.lastName, pattern),
-          ilike(pgpmembers.memberId, pattern),
-        ),
-      )
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(asc(pgpmembers.lastName), asc(pgpmembers.firstName))
       .limit(8);
 

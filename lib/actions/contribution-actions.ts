@@ -42,17 +42,19 @@ export async function updateContributionSettingsAction(
  * Admin/treasurer: generates one bill per active directory member for a
  * billing month. Existing bills are never overwritten — reruns only fill in
  * members that are still missing a row.
+ *
+ * A chapter treasurer's run is pinned to their own chapter.
  */
 export async function generateMonthlyBillsAction(
   _previousState: ContributionActionState,
   formData: FormData,
 ): Promise<ContributionActionState> {
   const admin = await requireAdmin();
-  const { canRecordContributions } = await import("@/lib/officer-permissions");
+  const { canRecordContributions, scopeChapterFor } = await import("@/lib/officer-permissions");
   if (!canRecordContributions(admin)) {
     return { error: "Your account cannot generate bills." };
   }
-  return generateMonthlyBills(text(formData, "billingMonth"));
+  return generateMonthlyBills(text(formData, "billingMonth"), scopeChapterFor(admin));
 }
 
 /**
@@ -69,23 +71,18 @@ export async function recordContributionPaymentAction(
   if (!canRecordContributions(admin)) {
     return { error: "Your account cannot record contributions." };
   }
-  const scope = scopeChapterFor(admin);
-  if (scope) {
-    const { db } = await import("@/db");
-    const { pgpmembers } = await import("@/db/schema");
-    const { eq } = await import("drizzle-orm");
-    const [m] = await db
-      .select({ chapter: pgpmembers.memberChapter })
-      .from(pgpmembers)
-      .where(eq(pgpmembers.id, text(formData, "memberPk")))
-      .limit(1);
-    if (m && (m.chapter ?? "").toLowerCase() !== scope.toLowerCase()) {
-      return { error: "This member belongs to another chapter." };
-    }
+  // A chapter treasurer may only write against their own chapter's members.
+  // `getScopedMember` returns null for both "no such member" and "another
+  // chapter", so this cannot be used to probe other chapters' rosters.
+  const { getScopedMember } = await import("@/lib/officer-access");
+  const memberPk = text(formData, "memberPk");
+  const target = await getScopedMember(admin, memberPk);
+  if (!target) {
+    return { error: "That member is not available to your account." };
   }
   return recordContributionPayment(
     {
-      memberPk: text(formData, "memberPk"),
+      memberPk,
       billingMonth: text(formData, "billingMonth"),
       amountPaidCents: pesosToCents(formData.get("amountPaid")),
       paymentMethod: text(formData, "paymentMethod"),
@@ -94,6 +91,7 @@ export async function recordContributionPaymentAction(
       waived: formData.get("waived") === "on",
     },
     admin.email,
+    scopeChapterFor(admin),
   );
 }
 

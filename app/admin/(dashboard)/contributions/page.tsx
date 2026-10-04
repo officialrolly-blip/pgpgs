@@ -3,7 +3,13 @@ import Link from "next/link";
 import PageHeading from "@/components/admin/page-heading";
 import ContributionSettingsForms from "@/components/admin/contribution-settings-forms";
 import { requireAdmin } from "@/lib/auth";
-import { canManageContributionSettings, canRecordContributions, roleLabel, scopeLabel } from "@/lib/officer-permissions";
+import {
+  canManageContributionSettings,
+  canRecordContributions,
+  roleLabel,
+  scopeChapterFor,
+  scopeLabel,
+} from "@/lib/officer-permissions";
 import { getContributionSettings, getMonthSummary } from "@/lib/contribution-service";
 import {
   billingMonthLabel,
@@ -37,9 +43,8 @@ export default async function AdminContributionsPage(props: {
   const ready = settings.ready;
   const canRecord = canRecordContributions(viewer);
   const canManageSettings = canManageContributionSettings(viewer);
-  const scope = viewer.assignedChapter?.trim() || null;
-  const chapterScope =
-    viewer.role === "chapter_secretary" || viewer.role === "chapter_treasurer" ? scope : null;
+  const scope = scopeChapterFor(viewer);
+  const chapterScope = scope;
   return (
     <>
       <PageHeading

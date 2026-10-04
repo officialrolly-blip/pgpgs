@@ -11,6 +11,8 @@ import {
   CONTRIBUTION_STATUSES,
   currentBillingMonth,
 } from "@/lib/contributions";
+import { asOfficer } from "@/lib/officer-access";
+import { scopeChapterFor } from "@/lib/officer-permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +22,10 @@ const VALID_STATUSES: readonly string[] = ["all", ...CONTRIBUTION_STATUSES];
 // REST API v1 — the dues ledger (admin bearer token or admin cookie).
 //   GET  /api/v1/contributions?month=YYYY-MM&q=&status=all&page=1&perPage=20
 //   POST /api/v1/contributions — record (or edit) a payment / waive a bill.
+//
+// Chapter scoping: chapter_secretary / chapter_treasurer are pinned to their
+// assigned chapter. The ledger, the month totals and any recorded payment are
+// restricted to that chapter; there is no parameter that widens it.
 export async function GET(request: Request) {
   try {
     const admin = await getAdminSessionUserFromRequest(request);
@@ -38,12 +44,14 @@ export async function GET(request: Request) {
     const page = Number.parseInt(url.searchParams.get("page") ?? "", 10);
     const perPage = Number.parseInt(url.searchParams.get("perPage") ?? "", 10);
 
+    const chapterScope = scopeChapterFor(asOfficer(admin));
     const result = await listContributions({
       month,
       q,
       status: status as ContributionFilter,
       page: Number.isFinite(page) ? page : 1,
       perPage: Number.isFinite(perPage) ? perPage : 20,
+      chapterScope,
     });
     if (!result.ready) {
       return NextResponse.json(
@@ -51,7 +59,7 @@ export async function GET(request: Request) {
         { status: 503 },
       );
     }
-    return NextResponse.json({ month, q, status, ...result });
+    return NextResponse.json({ month, q, status, chapterScope, ...result });
   } catch (error) {
     console.error("API v1 contributions list failed", error);
     return NextResponse.json(
@@ -84,6 +92,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Amount paid is required." }, { status: 400 });
     }
 
+    const chapterScope = scopeChapterFor(asOfficer(admin));
     const result = await recordContributionPayment(
       {
         memberPk: typeof body.memberPk === "string" ? body.memberPk.trim() : "",
@@ -95,6 +104,7 @@ export async function POST(request: Request) {
         waived,
       },
       admin.email,
+      chapterScope,
     );
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status ?? 400 });

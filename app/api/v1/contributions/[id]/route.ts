@@ -5,6 +5,9 @@ import {
   deleteContributionRecord,
   getContributionById,
 } from "@/lib/contribution-service";
+import { canAccessChapterName } from "@/lib/chapter-names";
+import { asOfficer, getScopedMember } from "@/lib/officer-access";
+import { scopeChapterFor } from "@/lib/officer-permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +15,9 @@ export const dynamic = "force-dynamic";
 // REST API v1 — a single contribution record (admin).
 //   GET    /api/v1/contributions/{id}
 //   DELETE /api/v1/contributions/{id}   (corrections only)
+//
+// Chapter scoping: a chapter officer only reaches records whose member sits in
+// their assigned chapter; anything else answers 404, exactly like an unknown id.
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -30,6 +36,13 @@ export async function GET(
     }
     if (!result.record) {
       return NextResponse.json({ error: "Contribution record not found." }, { status: 404 });
+    }
+    const chapterScope = scopeChapterFor(asOfficer(admin));
+    if (chapterScope) {
+      const member = await getScopedMember(admin, result.record.memberPk);
+      if (!member || !canAccessChapterName(member.memberChapter, chapterScope)) {
+        return NextResponse.json({ error: "Contribution record not found." }, { status: 404 });
+      }
     }
     return NextResponse.json({ contribution: result.record });
   } catch (error) {

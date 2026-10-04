@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { and, count, desc, eq, ilike, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
@@ -10,7 +10,12 @@ import { deleteMemberAction } from "@/lib/actions/member-actions";
 import { requireAdmin } from "@/lib/auth";
 import { chapterMatches } from "@/lib/chapters";
 import { MEMBER_STATUSES } from "@/lib/member-constants";
-import { canEditMembers, roleLabel, scopeLabel } from "@/lib/officer-permissions";
+import {
+  canEditMembers,
+  roleLabel,
+  scopeChapterFor,
+  scopeLabel,
+} from "@/lib/officer-permissions";
 
 export const metadata: Metadata = {
   title: "Members",
@@ -29,13 +34,12 @@ export default async function AdminMembersPage({
   const status = params.status?.trim() ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const canEdit = canEditMembers(viewer);
-  const scope = viewer.assignedChapter?.trim() || null;
-  const chapterScoped = Boolean(
-    (viewer.role === "chapter_secretary" || viewer.role === "chapter_treasurer") && scope,
-  );
+  // Single source of truth for the chapter pin: null = whole province.
+  const scope = scopeChapterFor(viewer);
+  const chapterScoped = scope !== null;
 
   const conditions = [ne(pgpmembers.status, "Neophyte")];
-  if (chapterScoped && scope) {
+  if (scope) {
     const chapterCondition = chapterMatches(pgpmembers.memberChapter, scope);
     if (chapterCondition) conditions.push(chapterCondition);
   }
@@ -53,17 +57,25 @@ export default async function AdminMembersPage({
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+  // Banner aggregates must respect the same chapter pin as the table below:
+  // a chapter officer sees their own chapter's totals only. `chapterScope`
+  // is the same normalised condition used for the list, interpolated as a
+  // parameter so the raw aggregate query cannot drift from it.
+  const bannerChapterFilter = scope
+    ? sql`and ${chapterMatches(pgpmembers.memberChapter, scope)}`
+    : sql``;
+
   const [filteredCountRows, bannerStatsRows] = await Promise.all([
     db.select({ value: count() }).from(pgpmembers).where(where),
-    db.execute<{ total: number; members: number; officers: number; alumni: number }>(
-      `select
-         count(*)::int as total,
-         count(*) filter (where status = 'Member')::int as members,
-         count(*) filter (where status = 'PGP-GS Roxas City Chapter Officer')::int as officers,
-         count(*) filter (where status = 'Alumni')::int as alumni
-       from pgpmembers
-       where status <> 'Neophyte'`,
-    ),
+    db.execute<{ total: number; members: number; officers: number; alumni: number }>(sql`
+      select
+        count(*)::int as total,
+        count(*) filter (where status = 'Member')::int as members,
+        count(*) filter (where status = 'PGP-GS Roxas City Chapter Officer')::int as officers,
+        count(*) filter (where status = 'Alumni')::int as alumni
+      from pgpmembers
+      where status <> 'Neophyte' ${bannerChapterFilter}
+    `),
   ]);
   const totalCount = Number(filteredCountRows[0]?.value ?? 0);
   const bannerStats = bannerStatsRows.rows[0];

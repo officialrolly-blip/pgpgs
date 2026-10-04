@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAdminSessionUserFromRequest } from "@/lib/auth";
 import { generateMonthlyBills } from "@/lib/contribution-service";
+import { asOfficer } from "@/lib/officer-access";
+import { scopeChapterFor } from "@/lib/officer-permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +11,9 @@ export const dynamic = "force-dynamic";
 //   POST /api/v1/contributions/generate-bills  { "billingMonth": "YYYY-MM" }
 // Billing month is optional (defaults to the current month). Existing bills
 // are never overwritten — reruns only fill in members still missing a row.
+//
+// Chapter scoping: a chapter treasurer's run only creates bills for the members
+// of their assigned chapter.
 export async function POST(request: Request) {
   try {
     const admin = await getAdminSessionUserFromRequest(request);
@@ -23,6 +28,7 @@ export async function POST(request: Request) {
 
     const result = await generateMonthlyBills(
       typeof body?.billingMonth === "string" ? body.billingMonth.trim() : "",
+      scopeChapterFor(asOfficer(admin)),
     );
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status ?? 400 });

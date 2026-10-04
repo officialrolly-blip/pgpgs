@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeading from "@/components/admin/page-heading";
 import { requireAdmin } from "@/lib/auth";
+import { scopeChapterFor } from "@/lib/officer-permissions";
 import { getMemberStatement } from "@/lib/contribution-service";
 import { billingMonthLabel, currentBillingMonth, formatCentavos } from "@/lib/contributions";
 
@@ -10,20 +11,29 @@ export const metadata: Metadata = { title: "Receipts & Arrears" };
 export default async function ContributionReceiptsPage(p: {
   searchParams: Promise<{ member?: string; month?: string }>;
 }) {
-  await requireAdmin();
+  const viewer = await requireAdmin();
   const sp = await p.searchParams;
   const memberParam = (sp.member ?? "").trim();
   const rawMonth = (sp.month ?? "").trim();
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth) ? rawMonth : currentBillingMonth();
+  // Chapter-scoped treasurers may only pull statements for their own chapter;
+  // `getMemberStatement` returns "no member found" for anything else.
+  const chapterScope = scopeChapterFor(viewer);
   return (
     <>
       <PageHeading
         title="Receipts & Arrears"
-        description="Look up a member to print a receipt or review arrears."
+        description={
+          chapterScope
+            ? `Look up a member of ${chapterScope} to print a receipt or review arrears.`
+            : "Look up a member to print a receipt or review arrears."
+        }
         actions={<Link href="/admin/contributions" className="a-btn a-btn-secondary">Back</Link>}
       />
       <LookupForm memberParam={memberParam} month={month} />
-      {memberParam ? <MemberStatement memberParam={memberParam} month={month} /> : null}
+      {memberParam ? (
+        <MemberStatement memberParam={memberParam} month={month} chapterScope={chapterScope} />
+      ) : null}
     </>
   );
 }
@@ -42,8 +52,8 @@ function LookupForm(p: { memberParam: string; month: string }) {
   );
 }
 
-async function MemberStatement(p: { memberParam: string; month: string }) {
-  const statement = await getMemberStatement(p.memberParam, p.month);
+async function MemberStatement(p: { memberParam: string; month: string; chapterScope: string | null }) {
+  const statement = await getMemberStatement(p.memberParam, p.month, p.chapterScope);
   if (statement.migrationNeeded) {
     return (
       <section className="a-card mt-5 border-a-warning/40 bg-a-warning-soft/50 p-5" role="alert">
@@ -54,7 +64,11 @@ async function MemberStatement(p: { memberParam: string; month: string }) {
   if (!statement.member) {
     return (
       <section className="a-card mt-5 p-5" role="status">
-        <p className="text-sm text-a-muted">No member found for that reference. Copy the Receipt link from the ledger row instead.</p>
+        <p className="text-sm text-a-muted">
+          {p.chapterScope
+            ? `No member found in ${p.chapterScope} for that reference. Copy the Receipt link from the ledger row instead.`
+            : "No member found for that reference. Copy the Receipt link from the ledger row instead."}
+        </p>
       </section>
     );
   }

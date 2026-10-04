@@ -3,6 +3,7 @@ import "server-only";
 import { asc, eq, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { chapters } from "@/db/schema";
+import { normalizeChapterName } from "@/lib/chapter-names";
 
 /**
  * Returns the set of published chapter names from the database.
@@ -35,17 +36,10 @@ export async function getAllChapterNames(): Promise<string[]> {
   return rows.map((row) => row.name);
 }
 
-// The organisation prefix is stored inconsistently across historical records:
-// some rows say "Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter", others
-// just "Roxas City Capiz Chapter". Comparing those literally hides members from
-// chapter-scoped views, so the prefix is stripped before matching.
-const ORG_PREFIX = /^pi\s*gamma\s*phi\s*gamma\s*sigma\s+/i;
-
-/** Normalises a chapter name for comparison (lowercase, no org prefix). */
-export function normalizeChapterName(value: string | null | undefined): string {
-  if (!value) return "";
-  return value.trim().toLowerCase().replace(ORG_PREFIX, "").trim();
-}
+// The organisation prefix is stored inconsistently across historical records
+// (see lib/chapter-names.ts), so chapter names are compared through the shared
+// normalisation helpers rather than literally.
+export { normalizeChapterName } from "@/lib/chapter-names";
 
 /**
  * SQL condition matching a `member_chapter`-style column against a chapter

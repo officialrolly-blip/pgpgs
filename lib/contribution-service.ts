@@ -4,9 +4,11 @@
 // Mutations call revalidateContributionPaths() themselves so every caller
 // (server action or route handler) gets the same cache invalidation.
 import { revalidatePath } from "next/cache";
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { contributionSettings, monthlyContributions, pgpmembers } from "@/db/schema";
+import { canAccessChapterName } from "@/lib/chapter-names";
+import { chapterMatches } from "@/lib/chapters";
 import {
   CONTRIBUTION_PAYMENT_METHODS,
   DEFAULT_DUES_DUE_DAY,
@@ -124,7 +126,11 @@ export async function listContributions(p: {
   const perPage = Math.min(Math.max(Math.trunc(p.perPage ?? 20) || 20, 1), 100);
   try {
     const conds = [eq(monthlyContributions.billingMonth, p.month)];
-    if (p.chapterScope) conds.push(eq(pgpmembers.memberChapter, p.chapterScope));
+    // Chapter-scoped officers only ever see their own chapter's bills. The
+    // normalised condition (rather than `eq`) keeps legacy rows that still
+    // carry the "Pi Gamma Phi Gamma Sigma " prefix visible to their officer.
+    const chapterCondition = chapterMatches(pgpmembers.memberChapter, p.chapterScope);
+    if (chapterCondition) conds.push(chapterCondition);
     if (p.status && p.status !== "all") conds.push(eq(monthlyContributions.status, p.status));
     const q = p.q?.trim();
     if (q) {
@@ -179,15 +185,33 @@ export type MonthSummary = {
   ready: boolean;
 };
 
-/** Collection overview for one billing month (zeros when unavailable). */
+/**
+ * Collection overview for one billing month (zeros when unavailable).
+ *
+ * `chapterScope` restricts the aggregate to a single chapter; passing null
+ * returns the province-wide totals that full/provincial officers are entitled
+ * to. The chapter filter is applied as a parameterised subquery — never string
+ * interpolation — so it can never be escaped and always matches the same
+ * normalised form used everywhere else.
+ */
 export async function getMonthSummary(month: string, chapterScope?: string | null): Promise<MonthSummary> {
   try {
-    const scopeFilter = chapterScope
-      ? ` and member_pk in (select id from pgpmembers where member_chapter = '${chapterScope.replace(/'/g, "''")}')`
-      : "";
-    const r = await db.execute<{ a: number; b: number; c: number; d: number; e: number; f: number; g: number }>(
-      `select count(*)::int as a, count(*) filter (where status='paid')::int as b, count(*) filter (where status='partial')::int as c, count(*) filter (where status='unpaid')::int as d, count(*) filter (where status='waived')::int as e, coalesce(sum(amount_paid_cents),0)::int as f, coalesce(sum(amount_due_cents),0)::int as g from monthly_contributions where billing_month='${month}'${scopeFilter}`,
-    );
+    const scopeCondition = chapterMatches(pgpmembers.memberChapter, chapterScope);
+    const scopeFilter = scopeCondition
+      ? sql`and monthly_contributions.member_pk in (select id from pgpmembers where ${scopeCondition})`
+      : sql``;
+    const r = await db.execute<{ a: number; b: number; c: number; d: number; e: number; f: number; g: number }>(sql`
+      select
+        count(*)::int as a,
+        count(*) filter (where status='paid')::int as b,
+        count(*) filter (where status='partial')::int as c,
+        count(*) filter (where status='unpaid')::int as d,
+        count(*) filter (where status='waived')::int as e,
+        coalesce(sum(amount_paid_cents),0)::int as f,
+        coalesce(sum(amount_due_cents),0)::int as g
+      from monthly_contributions
+      where billing_month = ${month} ${scopeFilter}
+    `);
     const row = r.rows[0];
     if (!row) {
       return { billed: 0, paid: 0, partial: 0, unpaid: 0, waived: 0, collectedCents: 0, expectedCents: 0, ready: true };
@@ -230,10 +254,18 @@ export type MemberStatement =
       lifetimeCents: number;
     };
 
-/** Receipt + arrears snapshot for one member through a billing month. */
+/**
+ * Receipt + arrears snapshot for one member through a billing month.
+ *
+ * `chapterScope` is the caller's chapter pin. When set and the member belongs to
+ * another chapter, the result is `{ member: null }` — identical to a missing
+ * record — so a chapter treasurer cannot use this endpoint to read another
+ * chapter's finances or confirm that a member exists.
+ */
 export async function getMemberStatement(
   memberParam: string,
   month: string,
+  chapterScope?: string | null,
 ): Promise<MemberStatement> {
   if (!UUID_PATTERN.test(memberParam)) {
     return { migrationNeeded: false, member: null };
@@ -245,6 +277,9 @@ export async function getMemberStatement(
       lastName: pgpmembers.lastName, chapter: pgpmembers.memberChapter,
     }).from(pgpmembers).where(eq(pgpmembers.id, memberParam)).limit(1);
     if (!m) return { migrationNeeded: false, member: null };
+    if (!canAccessChapterName(m.chapter, chapterScope)) {
+      return { migrationNeeded: false, member: null };
+    }
 
     const bills = await db.select({
       billingMonth: monthlyContributions.billingMonth,
@@ -394,20 +429,29 @@ export async function updateContributionSettings(
  * Generates one bill per active directory member for a billing month.
  * Existing bills are never overwritten — reruns only fill in members that are
  * still missing a row.
+ *
+ * `chapterScope` limits generation to one chapter, so a chapter treasurer
+ * billing their own month can never create bills for other chapters' members.
  */
-export async function generateMonthlyBills(billingMonth: string): Promise<ContributionResult> {
+export async function generateMonthlyBills(
+  billingMonth: string,
+  chapterScope?: string | null,
+): Promise<ContributionResult> {
   const requested = billingMonth || currentBillingMonth();
   if (!BILLING_MONTH_PATTERN.test(requested)) {
     return { error: "Pick a valid billing month.", status: 400 };
   }
   const [settings] = await db.select().from(contributionSettings).limit(1);
   const amountDueCents = settings?.monthlyAmountCents ?? DEFAULT_MONTHLY_DUES_CENTS;
-  const generated = await db.execute<{ created: number }>(
-    `insert into monthly_contributions (member_pk, billing_month, amount_due_cents)
-     select id, '${requested}'::text, ${amountDueCents}::int
-     from pgpmembers where status <> 'Neophyte'
-     on conflict (member_pk, billing_month) do nothing returning 1`,
-  );
+  const scopeCondition = chapterMatches(pgpmembers.memberChapter, chapterScope);
+  const scopeFilter = scopeCondition ? sql`and ${scopeCondition}` : sql``;
+  const generated = await db.execute<{ created: number }>(sql`
+    insert into monthly_contributions (member_pk, billing_month, amount_due_cents)
+    select id, ${requested}::text, ${amountDueCents}::int
+    from pgpmembers
+    where status <> 'Neophyte' ${scopeFilter}
+    on conflict (member_pk, billing_month) do nothing returning 1
+  `);
   const createdCount = generated.rows.length;
   revalidateContributionPaths();
   if (createdCount === 0) {
@@ -420,6 +464,10 @@ export async function generateMonthlyBills(billingMonth: string): Promise<Contri
 /**
  * Records (or edits) a payment against a member's monthly bill. Supports full
  * payments, partial payments, waivers, and arrears catch-up for any past month.
+ *
+ * `chapterScope` is the recorder's chapter pin: a chapter treasurer may only
+ * write against their own chapter's members (403 otherwise). Passing null keeps
+ * the province-wide behaviour for full/provincial officers.
  */
 export async function recordContributionPayment(
   input: {
@@ -432,6 +480,7 @@ export async function recordContributionPayment(
     waived: boolean;
   },
   recordedBy: string,
+  chapterScope?: string | null,
 ): Promise<ContributionResult> {
   const { memberPk, amountPaidCents, paymentMethod, referenceNumber, note, waived } = input;
   const billingMonth = input.billingMonth || currentBillingMonth();
@@ -447,8 +496,11 @@ export async function recordContributionPayment(
   if (referenceNumber.length > 80) return { error: "Reference number must be 80 characters or fewer.", status: 400 };
   if (note.length > 500) return { error: "Note must be 500 characters or fewer.", status: 400 };
 
-  const [member] = await db.select({ id: pgpmembers.id }).from(pgpmembers).where(eq(pgpmembers.id, memberPk)).limit(1);
+  const [member] = await db.select({ id: pgpmembers.id, chapter: pgpmembers.memberChapter }).from(pgpmembers).where(eq(pgpmembers.id, memberPk)).limit(1);
   if (!member) return { error: "Member not found.", status: 404 };
+  if (!canAccessChapterName(member.chapter, chapterScope)) {
+    return { error: "This member belongs to another chapter.", status: 403 };
+  }
   const [settings] = await db.select().from(contributionSettings).limit(1);
   const fallbackDue = settings?.monthlyAmountCents ?? DEFAULT_MONTHLY_DUES_CENTS;
   const [existing] = await db

@@ -11,7 +11,7 @@ import MemberForm, {
 import ConfirmSubmitButton from "@/components/admin/confirm-submit-button";
 import { deleteMemberAction } from "@/lib/actions/member-actions";
 import { requireAdmin } from "@/lib/auth";
-import { canEditMembers } from "@/lib/officer-permissions";
+import { canAccessChapter, canEditMembers, scopeChapterFor } from "@/lib/officer-permissions";
 import { getAllChapterNames } from "@/lib/chapters";
 
 export const metadata: Metadata = {
@@ -27,10 +27,7 @@ export default async function EditMemberPage({
   const { id } = await params;
   const chapters = await getAllChapterNames();
   const canEdit = canEditMembers(viewer);
-  const scope = viewer.assignedChapter?.trim() || null;
-  const chapterScoped = Boolean(
-    (viewer.role === "chapter_secretary" || viewer.role === "chapter_treasurer") && scope,
-  );
+  const scope = scopeChapterFor(viewer);
 
   const [member] = await db
     .select()
@@ -38,8 +35,11 @@ export default async function EditMemberPage({
     .where(eq(pgpmembers.id, id))
     .limit(1);
 
+  // A chapter-scoped officer gets a 404 — not a redirect or a permission error —
+  // for records outside their chapter, so the page cannot be used to discover
+  // other chapters' members.
   if (!member) notFound();
-  if (chapterScoped && scope && (member.memberChapter ?? "").toLowerCase() !== scope.toLowerCase()) {
+  if (!canAccessChapter(viewer, member.memberChapter)) {
     notFound();
   }
 
@@ -124,7 +124,7 @@ export default async function EditMemberPage({
         initial={initial}
         chapters={chapters}
         readOnly={!canEdit}
-        lockedChapter={chapterScoped ? scope : null}
+        lockedChapter={scope}
       />
     </>
   );

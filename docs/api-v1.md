@@ -106,6 +106,24 @@ so `?chapter=Roxas City Capiz Chapter` also matches members stored as
 `Pi Gamma Phi Gamma Sigma Roxas City Capiz Chapter`. Neophytes are excluded
 unless `includeNeophytes=true`. `limit` defaults to 25, max 100.
 
+### Chapter scoping on the contributions endpoints
+
+The same pin applies to every dues endpoint, and it is **not** overridable by a
+query parameter:
+
+| Endpoint | Chapter officer sees |
+| --- | --- |
+| `GET /api/v1/contributions` | Ledger rows for their chapter only. The resolved scope is echoed back as `chapterScope`. |
+| `GET /api/v1/contributions/summary` | Collection totals for their chapter only — never a province-wide aggregate. Echoed as `chapterScope`. |
+| `GET /api/v1/contributions/receipts` | `404` (same as an unknown id) for a member outside their chapter. |
+| `GET /api/v1/contributions/{id}` | `404` for a record whose member is outside their chapter. |
+| `POST /api/v1/contributions` | `403` when recording against a member outside their chapter. |
+| `POST /api/v1/contributions/generate-bills` | Creates bills for their chapter's members only. |
+
+Provincial roles and full admins are unscoped and keep the province-wide
+behaviour. Chapter names are matched with the same prefix/case-insensitive rules
+as the members endpoint.
+
 ### Notes
 
 - **Errors** are always `{ "error": "human readable message" }` with a proper

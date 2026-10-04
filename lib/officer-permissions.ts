@@ -11,6 +11,11 @@
 // chapters table). Provincial roles have `assignedChapter = null` and see
 // the entire directory.
 //
+// Every read path must therefore resolve its scope through `scopeChapterFor`
+// (query filters, aggregates, lists) or `canAccessChapter` (single-row checks)
+// instead of trusting a value coming from the request.
+import { chapterNamesEqual } from "@/lib/chapter-names";
+
 export const OFFICER_ROLES = [
   "provincial_secretary",
   "provincial_treasurer",
@@ -97,6 +102,29 @@ export function isSuperadmin(role: string): boolean {
 export function scopeChapterFor(user: SessionOfficer): string | null {
   if (isChapterScopedRole(user.role)) return user.assignedChapter?.trim() || null;
   return null;
+}
+
+/** True when the user is pinned to a single chapter (i.e. not a provincial view). */
+export function hasChapterScope(user: SessionOfficer): boolean {
+  return scopeChapterFor(user) !== null;
+}
+
+/**
+ * Row-level counterpart of `scopeChapterFor`: may this user see a record that
+ * belongs to `memberChapter`?
+ *
+ * Provincial/full admins pass everything. Chapter-scoped officers only see
+ * records whose chapter matches their assignment — compared through
+ * `chapterNamesEqual` so legacy rows carrying the "Pi Gamma Phi Gamma Sigma "
+ * prefix still match, while an unassigned chapter never matches.
+ */
+export function canAccessChapter(
+  user: SessionOfficer,
+  memberChapter: string | null | undefined,
+): boolean {
+  const scope = scopeChapterFor(user);
+  if (!scope) return true;
+  return chapterNamesEqual(memberChapter, scope);
 }
 
 /** Secretary side: allowed to create / edit / delete member records. */

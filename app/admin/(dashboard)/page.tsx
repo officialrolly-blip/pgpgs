@@ -1,10 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers, registrations } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import { chapterMatches } from "@/lib/chapters";
+import { getMonthSummary } from "@/lib/contribution-service";
+import { currentBillingMonth } from "@/lib/contributions";
 import { NEOPHYTE_STATUS_LABELS, NEOPHYTE_STATUSES } from "@/lib/member-constants";
+import {
+  canEditMembers,
+  roleLabel,
+  scopeChapterFor,
+  scopeLabel,
+} from "@/lib/officer-permissions";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -20,6 +29,13 @@ type Metric = {
 export default async function AdminOverviewPage() {
   const admin = await requireAdmin();
 
+  // Chapter-scoped officers (chapter secretary / treasurer) are pinned to their
+  // own chapter: every count, breakdown, list and total below is filtered by
+  // `chapterScope`, and province-wide workflow panels are not rendered for them.
+  const chapterScope = scopeChapterFor(admin);
+  const seesProvinceWide = chapterScope === null;
+  const chapterFilter = chapterMatches(pgpmembers.memberChapter, chapterScope);
+
   const [
     memberCounts,
     applicationCounts,
@@ -31,61 +47,72 @@ export default async function AdminOverviewPage() {
     pendingApplications,
     recentMembers,
   ] = await Promise.all([
-    db.execute<{ total: number; officers: number; alumni: number }>(
-      `select
-         count(*)::int as total,
-         count(*) filter (where status = 'PGP-GS Roxas City Chapter Officer')::int as officers,
-         count(*) filter (where status = 'Alumni')::int as alumni
-       from pgpmembers
-       where status <> 'Neophyte'`,
-    ),
-    db.execute<{ pending: number }>(
-      `select count(*)::int as pending from registrations where application_status = 'pending'`,
-    ),
-    db.execute<{ pending: number; published: number }>(
-      `select
-         count(*) filter (where status <> 'published')::int as pending,
-         count(*) filter (where status = 'published')::int as published
-       from chapters`,
-    ),
-    db.execute<{ unread: number }>(
-      `select count(*)::int as unread from contact_messages where status = 'unread'`,
-    ),
-    db.execute<{ neophytes: number; officers: number; alumni: number; regular: number }>(
-      `select
-         count(*) filter (where status = 'Neophyte')::int as neophytes,
-         count(*) filter (where status = 'PGP-GS Roxas City Chapter Officer')::int as officers,
-         count(*) filter (where status = 'Alumni')::int as alumni,
-         count(*) filter (where status not in ('Neophyte', 'PGP-GS Roxas City Chapter Officer', 'Alumni'))::int as regular
-       from pgpmembers`,
-    ),
-    db.execute<{ stage: string; total: number }>(
-      `select coalesce(neophyte_status, 'orientation') as stage, count(*)::int as total
-       from pgpmembers
-       where status = 'Neophyte'
-       group by 1`,
-    ),
-    db.execute<{ month: string; total: number }>(
-      `select to_char(date_trunc('month', created_at), 'YYYY-MM') as month, count(*)::int as total
-       from registrations
-       where created_at >= date_trunc('month', now()) - interval '11 months'
-       group by 1
-       order by 1`,
-    ),
-    db
-      .select({
-        id: registrations.id,
-        firstName: registrations.firstName,
-        middleInitial: registrations.middleInitial,
-        lastName: registrations.lastName,
-        email: registrations.email,
-        contactNumber: registrations.contactNumber,
-        createdAt: registrations.createdAt,
-      })
-      .from(registrations)
-      .where(eq(registrations.applicationStatus, "pending"))
-      .orderBy(desc(registrations.createdAt))
-      .limit(5),
+    db.execute<{ total: number; officers: number; alumni: number }>(sql`
+      select
+        count(*)::int as total,
+        count(*) filter (where status = 'PGP-GS Roxas City Chapter Officer')::int as officers,
+        count(*) filter (where status = 'Alumni')::int as alumni
+      from pgpmembers
+      where status <> 'Neophyte' ${chapterFilter ? sql`and ${chapterFilter}` : sql``}
+    `),
+    seesProvinceWide
+      ? db.execute<{ pending: number }>(
+          `select count(*)::int as pending from registrations where application_status = 'pending'`,
+        )
+      : Promise.resolve({ rows: [] as { pending: number }[] }),
+    seesProvinceWide
+      ? db.execute<{ pending: number; published: number }>(
+          `select
+             count(*) filter (where status <> 'published')::int as pending,
+             count(*) filter (where status = 'published')::int as published
+           from chapters`,
+        )
+      : Promise.resolve({ rows: [] as { pending: number; published: number }[] }),
+    seesProvinceWide
+      ? db.execute<{ unread: number }>(
+          `select count(*)::int as unread from contact_messages where status = 'unread'`,
+        )
+      : Promise.resolve({ rows: [] as { unread: number }[] }),
+    db.execute<{ neophytes: number; officers: number; alumni: number; regular: number }>(sql`
+      select
+        count(*) filter (where status = 'Neophyte')::int as neophytes,
+        count(*) filter (where status = 'PGP-GS Roxas City Chapter Officer')::int as officers,
+        count(*) filter (where status = 'Alumni')::int as alumni,
+        count(*) filter (where status not in ('Neophyte', 'PGP-GS Roxas City Chapter Officer', 'Alumni'))::int as regular
+      from pgpmembers
+      ${chapterFilter ? sql`where ${chapterFilter}` : sql``}
+    `),
+    db.execute<{ stage: string; total: number }>(sql`
+      select coalesce(neophyte_status, 'orientation') as stage, count(*)::int as total
+      from pgpmembers
+      where status = 'Neophyte' ${chapterFilter ? sql`and ${chapterFilter}` : sql``}
+      group by 1
+    `),
+    seesProvinceWide
+      ? db.execute<{ month: string; total: number }>(
+          `select to_char(date_trunc('month', created_at), 'YYYY-MM') as month, count(*)::int as total
+           from registrations
+           where created_at >= date_trunc('month', now()) - interval '11 months'
+           group by 1
+           order by 1`,
+        )
+      : Promise.resolve({ rows: [] as { month: string; total: number }[] }),
+    seesProvinceWide
+      ? db
+          .select({
+            id: registrations.id,
+            firstName: registrations.firstName,
+            middleInitial: registrations.middleInitial,
+            lastName: registrations.lastName,
+            email: registrations.email,
+            contactNumber: registrations.contactNumber,
+            createdAt: registrations.createdAt,
+          })
+          .from(registrations)
+          .where(eq(registrations.applicationStatus, "pending"))
+          .orderBy(desc(registrations.createdAt))
+          .limit(5)
+      : Promise.resolve([]),
     db
       .select({
         id: pgpmembers.id,
@@ -97,7 +124,11 @@ export default async function AdminOverviewPage() {
         createdAt: pgpmembers.createdAt,
       })
       .from(pgpmembers)
-      .where(ne(pgpmembers.status, "Neophyte"))
+      .where(
+        chapterFilter
+          ? and(ne(pgpmembers.status, "Neophyte"), chapterFilter)
+          : ne(pgpmembers.status, "Neophyte"),
+      )
       .orderBy(desc(pgpmembers.createdAt))
       .limit(5),
   ]);
@@ -111,22 +142,24 @@ export default async function AdminOverviewPage() {
   let duesExpected = 0;
   let duesUnpaidCount = 0;
   try {
-    const dues = await db.execute<{ c: number; e: number; u: number }>(
-      `select coalesce(sum(amount_paid_cents),0)::int as c, coalesce(sum(amount_due_cents),0)::int as e, count(*) filter (where status in ('unpaid','partial'))::int as u from monthly_contributions where billing_month = to_char(now(), 'YYYY-MM')`,
-    );
-    const d = dues.rows[0];
-    if (d) { duesCollected = d.c; duesExpected = d.e; duesUnpaidCount = d.u; }
+    // Scoped summary: a chapter officer only ever sees their own chapter's dues.
+    const summary = await getMonthSummary(currentBillingMonth(), chapterScope);
+    duesCollected = summary.collectedCents;
+    duesExpected = summary.expectedCents;
+    duesUnpaidCount = summary.unpaid + summary.partial;
   } catch { /* tables not migrated yet — overview stays clean */ }
   const directoryMetrics: Metric[] = [
-    { label: "Members", value: Number(memberStats?.total ?? 0), detail: "Chapter directory", href: "/admin/members", tone: "green", icon: "users" },
-    { label: "Officers", value: Number(memberStats?.officers ?? 0), detail: "Active appointments", href: "/admin/officials", tone: "gold", icon: "badge" },
+    { label: "Members", value: Number(memberStats?.total ?? 0), detail: chapterScope ?? "Chapter directory", href: "/admin/members", tone: "green", icon: "users" },
+    { label: "Officers", value: Number(memberStats?.officers ?? 0), detail: "Active appointments", href: seesProvinceWide ? "/admin/officials" : "/admin/members?status=PGP-GS+Roxas+City+Chapter+Officer", tone: "gold", icon: "badge" },
     { label: "Alumni", value: Number(memberStats?.alumni ?? 0), detail: "Former members", href: "/admin/members?status=Alumni", tone: "slate", icon: "grad" },
   ];
-  const workflowMetrics: Metric[] = [
-    { label: "To review", value: pending, detail: pending === 1 ? "Application pending" : "Applications pending", href: "/admin/registrations", tone: "amber", icon: "inbox" },
-    { label: "Inbox", value: unread, detail: unread === 1 ? "Unread message" : "Unread messages", href: "/admin/inbox", tone: unread > 0 ? "amber" : "slate", icon: "mail" },
-    { label: "Chapters", value: pendingChapters, detail: `${pendingChapters === 1 ? "Chapter" : "Chapters"} awaiting review · ${publishedChapters} published`, href: "/admin/chapters", tone: "gold", icon: "pin" },
-  ];
+  const workflowMetrics: Metric[] = seesProvinceWide
+    ? [
+        { label: "To review", value: pending, detail: pending === 1 ? "Application pending" : "Applications pending", href: "/admin/registrations", tone: "amber", icon: "inbox" },
+        { label: "Inbox", value: unread, detail: unread === 1 ? "Unread message" : "Unread messages", href: "/admin/inbox", tone: unread > 0 ? "amber" : "slate", icon: "mail" },
+        { label: "Chapters", value: pendingChapters, detail: `${pendingChapters === 1 ? "Chapter" : "Chapters"} awaiting review · ${publishedChapters} published`, href: "/admin/chapters", tone: "gold", icon: "pin" },
+      ]
+    : [];
   const duesRate = duesExpected > 0 ? Math.round((duesCollected / duesExpected) * 100) : 0;
 
   const now = new Date();
@@ -139,10 +172,12 @@ export default async function AdminOverviewPage() {
     year: "numeric",
   });
   const directory = directoryBreakdown.rows[0] ?? { neophytes: 0, officers: 0, alumni: 0, regular: 0 };
+  // Chapter officers cannot open the full-admin-only Officers / Neophyte
+  // pages, so their donut segments link back into their own scoped directory.
   const composition = [
     { label: "Members", value: Number(directory.regular ?? 0), color: "#1b5c38", href: "/admin/members" },
-    { label: "Officers", value: Number(directory.officers ?? 0), color: "#c9a227", href: "/admin/officials" },
-    { label: "Neophytes", value: Number(directory.neophytes ?? 0), color: "#175cd3", href: "/admin/neophytes" },
+    { label: "Officers", value: Number(directory.officers ?? 0), color: "#c9a227", href: seesProvinceWide ? "/admin/officials" : "/admin/members?status=PGP-GS+Roxas+City+Chapter+Officer" },
+    { label: "Neophytes", value: Number(directory.neophytes ?? 0), color: "#175cd3", href: seesProvinceWide ? "/admin/neophytes" : "/admin/members?status=Neophyte" },
     { label: "Alumni", value: Number(directory.alumni ?? 0), color: "#98a2b3", href: "/admin/members?status=Alumni" },
   ];
 
@@ -179,10 +214,16 @@ export default async function AdminOverviewPage() {
     });
     cursor.setMonth(cursor.getMonth() + 1);
   }
-  const summaryLine =
-    pendingItems.length === 0
+  const summaryLine = !seesProvinceWide
+    ? chapterScope
+      ? `Showing records for ${chapterScope} only.${unexpectedStages.length > 0 ? ` ${pendingItems.join(" · ")}.` : ""}`
+      : "Showing records for your assigned chapter only."
+    : pendingItems.length === 0
       ? "Everything is up to date — no pending applications, unread messages, or chapter reviews."
       : `${pendingItems.join(" · ")}.`;
+  const scopeNotice = chapterScope
+    ? `${roleLabel(admin.role)} · ${chapterScope}`
+    : scopeLabel(admin);
 
   return (
     <>
@@ -201,15 +242,22 @@ export default async function AdminOverviewPage() {
               {greeting}, {admin.name.split(" ")[0]}.
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-white/70">{summaryLine}</p>
+            <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85">
+              {scopeNotice}
+            </p>
           </div>
-          <Link href="/admin/members/new" className="a-btn a-btn-gold shrink-0 self-start sm:self-center">
-            Add member
-          </Link>
+          {canEditMembers(admin) ? (
+            <Link href="/admin/members/new" className="a-btn a-btn-gold shrink-0 self-start sm:self-center">
+              Add member
+            </Link>
+          ) : null}
         </div>
       </section>
 
       <MetricCardRow label="Directory totals" metrics={directoryMetrics} />
-      <MetricCardRow label="Workflows needing attention" metrics={workflowMetrics} className="mt-4" />
+      {workflowMetrics.length > 0 ? (
+        <MetricCardRow label="Workflows needing attention" metrics={workflowMetrics} className="mt-4" />
+      ) : null}
 
       <section className="a-card mt-4 overflow-hidden" aria-label="This month's dues collection">
         <Link href="/admin/contributions" className="group flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -220,7 +268,7 @@ export default async function AdminOverviewPage() {
               </svg>
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-a-text transition group-hover:text-a-brand">Monthly contributions · {now.toLocaleDateString("en-PH", { month: "long" })}</span>
+              <span className="block text-sm font-semibold text-a-text transition group-hover:text-a-brand">Monthly contributions · {now.toLocaleDateString("en-PH", { month: "long" })}{chapterScope ? ` · ${chapterScope}` : ""}</span>
               <span className="mt-0.5 block text-xs text-a-muted">
                 ₱{(duesCollected / 100).toFixed(2)} of ₱{(duesExpected / 100).toFixed(2)} collected ({duesRate}%){duesUnpaidCount > 0 ? ` · ${duesUnpaidCount} unpaid` : " · all settled"}
               </span>
@@ -236,11 +284,17 @@ export default async function AdminOverviewPage() {
       </section>
 
       <div className="mt-6 flex flex-col gap-5">
-        <MonthlyTrendChart months={trend} />
+        {seesProvinceWide ? <MonthlyTrendChart months={trend} /> : null}
         <DirectoryDonutChart segments={composition} />
-        <NeophytePipelineChart stages={pipeline} unexpected={unexpectedStages} />
+        <NeophytePipelineChart
+          stages={pipeline}
+          unexpected={unexpectedStages}
+          href={seesProvinceWide ? "/admin/neophytes" : null}
+          canManage={seesProvinceWide}
+        />
       </div>
 
+      {seesProvinceWide ? (
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.8fr)]">
         <section className="a-card overflow-hidden" aria-labelledby="review-heading">
           <PanelHeader title="Applications awaiting review" href="/admin/registrations" action="Open applications" />
@@ -284,21 +338,27 @@ export default async function AdminOverviewPage() {
           <h2 id="workspace-heading" className="a-card-title">Common tasks</h2>
           <p className="mt-1.5 text-sm leading-6 text-a-muted">Keep chapter records current from one place.</p>
           <div className="mt-4 divide-y divide-a-border-soft border-y border-a-border-soft">
-            <QuickLink href="/admin/members/new" icon="plus" title="Add a member" description="Create a chapter directory record." />
-            <QuickLink href="/admin/officials" icon="badge" title="Manage officers" description="Assign or update chapter positions." />
-            <QuickLink href="/admin/chapters" icon="pin" title="Review chapters" description="Publish PGPGS Across Capiz registrations." />
-            <QuickLink href="/admin/settings" icon="gear" title="Account settings" description="Manage administrator access." />
+            {canEditMembers(admin) ? (
+              <QuickLink href="/admin/members/new" icon="plus" title="Add a member" description="Create a chapter directory record." />
+            ) : null}
+            <QuickLink href="/admin/contributions" icon="peso" title="Monthly contributions" description="Review your chapter's dues ledger." />
+            <QuickLink href="/admin/settings" icon="gear" title="Account settings" description="Manage your account access." />
           </div>
           <Link href="/admin/registrations" className="a-btn a-btn-gold mt-5 w-full">
             Review {pending} pending {pending === 1 ? "application" : "applications"}
           </Link>
         </aside>
       </div>
+      ) : null}
 
       <section className="a-card mt-6 overflow-hidden" aria-labelledby="members-heading">
-        <PanelHeader title="Recently added members" href="/admin/members" action="Open directory" />
+        <PanelHeader title={chapterScope ? `Recently added members · ${chapterScope}` : "Recently added members"} href="/admin/members" action="Open directory" />
         {recentMembers.length === 0 ? (
-          <EmptyState message="The member directory is empty." href="/admin/members/new" action="Add the first member" />
+          <EmptyState
+            message={chapterScope ? `No members recorded under ${chapterScope} yet.` : "The member directory is empty."}
+            href={canEditMembers(admin) ? "/admin/members/new" : "/admin/members"}
+            action={canEditMembers(admin) ? "Add the first member" : "Open the directory"}
+          />
         ) : (
           <div className="grid divide-y divide-a-border-soft md:grid-cols-2 md:divide-x">
             {recentMembers.map((member) => (
@@ -445,15 +505,20 @@ function DirectoryDonutChart({ segments }: { segments: { label: string; value: n
 function NeophytePipelineChart({
   stages,
   unexpected,
+  href,
+  canManage,
 }: {
   stages: { stage: string; label: string; value: number }[];
   unexpected: [string, number][];
+  /** Chapter officers have no access to the neophyte portal, so no drill-down. */
+  href: string | null;
+  canManage: boolean;
 }) {
   const max = Math.max(1, ...stages.map((stage) => stage.value));
   const total = stages.reduce((sum, stage) => sum + stage.value, 0);
   return (
     <section className="a-card overflow-hidden" aria-labelledby="pipeline-heading">
-      <PanelHeader title="Neophyte pipeline" href="/admin/neophytes" action="Neophytes" />
+      <PanelHeader title="Neophyte pipeline" href={href} action="Neophytes" />
       <div className="px-5 pt-5 sm:px-6 sm:pt-6">
         <p className="text-sm text-a-muted">Formation stages from orientation to full membership.</p>
         <ol className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-2">
@@ -482,7 +547,8 @@ function NeophytePipelineChart({
         {unexpected.length > 0 ? (
           <p className="mt-5 rounded-lg bg-a-warning-soft px-3 py-2 text-xs font-medium leading-5 text-a-warning">
             {unexpected.reduce((sum, [, count]) => sum + count, 0)} {unexpected.length === 1 ? "record has" : "records have"} an
-            unexpected stage ({unexpected.map(([stage]) => stage).join(", ")}). Open a neophyte to reset it.
+            unexpected stage ({unexpected.map(([stage]) => stage).join(", ")}).
+            {canManage ? " Open a neophyte to reset it." : ""}
           </p>
         ) : null}
       </div>
@@ -497,13 +563,15 @@ function NeophytePipelineChart({
   );
 }
 
-function PanelHeader({ title, href, action }: { title: string; href: string; action: string }) {
+function PanelHeader({ title, href, action }: { title: string; href?: string | null; action?: string }) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-a-border px-5 py-4">
       <h2 className="a-card-title">{title}</h2>
-      <Link href={href} className="shrink-0 text-sm font-medium text-a-brand transition hover:text-a-brand-dark">
-        {action} →
-      </Link>
+      {href ? (
+        <Link href={href} className="shrink-0 text-sm font-medium text-a-brand transition hover:text-a-brand-dark">
+          {action} →
+        </Link>
+      ) : null}
     </header>
   );
 }
@@ -547,6 +615,7 @@ const taskIcons = {
   plus: "M12 5v14M5 12h14",
   badge: "M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6zM9 12l2 2 4-4",
   pin: "M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0ZM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5",
+  peso: "M15 4H6v16h3v-6h4l2 2v4h3v-6l-2.5-2L18 10V4zM9 7h3v4H9z",
   gear: "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.5 1.5-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.1v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.5-1.5.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H7v-2.1h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V5h2.1v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2v2.1h-.2a1.7 1.7 0 0 0-1.5 1Z",
 };
 

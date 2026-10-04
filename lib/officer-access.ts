@@ -8,6 +8,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser, requireAdmin, type AdminUser } from "@/lib/auth";
 import {
+  canAccessChapter,
   canEditMembers,
   isChapterScopedRole,
   isFullAdmin,
@@ -17,7 +18,8 @@ import {
 
 export type OfficerSession = AdminUser;
 
-function asOfficer(user: AdminUser): SessionOfficer {
+/** Normalises an admin session row into the permission layer's user shape. */
+export function asOfficer(user: AdminUser): SessionOfficer {
   return {
     id: user.id,
     email: user.email,
@@ -65,6 +67,29 @@ export async function currentChapterScope(): Promise<string | null> {
   const user = await getSessionUser();
   if (!user) return null;
   return scopeChapterFor(asOfficer(user));
+}
+
+/**
+ * Loads one member record and returns it only when the viewer is allowed to see
+ * it. `null` means "not visible": either the record does not exist, or it lives
+ * in another chapter — the two cases are deliberately indistinguishable so a
+ * scoped officer cannot probe for the existence of other chapters' records.
+ */
+export async function getScopedMember(
+  viewer: AdminUser,
+  memberId: string,
+): Promise<{ id: string; memberChapter: string | null } | null> {
+  const { db } = await import("@/db");
+  const { pgpmembers } = await import("@/db/schema");
+  const { eq } = await import("drizzle-orm");
+  const [member] = await db
+    .select({ id: pgpmembers.id, memberChapter: pgpmembers.memberChapter })
+    .from(pgpmembers)
+    .where(eq(pgpmembers.id, memberId))
+    .limit(1);
+  if (!member) return null;
+  if (!canAccessChapter(asOfficer(viewer), member.memberChapter)) return null;
+  return member;
 }
 
 /** True when the signed-in user may open the member edit form. */
