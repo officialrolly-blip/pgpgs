@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { eq, sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
 import { registrations } from "@/db/schema";
+import { getPublishedChapterNames } from "@/lib/chapters";
 
 export const runtime = "nodejs";
 
@@ -69,6 +70,26 @@ export async function POST(request: Request) {
     }
 
     const email = (body.email as string).trim().toLowerCase();
+
+    // The chapter selected at registration decides which chapter's
+    // secretary/treasurer owns the neophyte later on, so it is validated against
+    // the same published-chapter list the dropdown is populated from and stored
+    // on the application row (carried to pgpmembers.member_chapter on approval).
+    const chapter = typeof body.chapter === "string" ? body.chapter.trim() : "";
+    if (!chapter) {
+      return NextResponse.json(
+        { error: "Please select the chapter you are registering with." },
+        { status: 400 },
+      );
+    }
+    const validChapterNames = await getPublishedChapterNames();
+    if (!validChapterNames.has(chapter)) {
+      return NextResponse.json(
+        { error: "Please select a valid PGPGS chapter." },
+        { status: 400 },
+      );
+    }
+
     const existingRegistration = await db
       .select({ id: registrations.id })
       .from(registrations)
@@ -118,6 +139,7 @@ export async function POST(request: Request) {
           email,
           contactNumber: body.contactNumber as string,
           passwordHash,
+          chapter,
         });
         break;
       } catch (error) {

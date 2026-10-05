@@ -168,6 +168,10 @@ export const registrations = pgTable("registrations", {
   email: text("email").notNull().unique(),
   contactNumber: text("contact_number").notNull(),
   passwordHash: text("password_hash").notNull(),
+  // Chapter the applicant picked at registration. Carried onto pgpmembers
+  // (member_chapter) when the application is approved, which is what decides
+  // which chapter's secretary/treasurer can see and manage the neophyte.
+  chapter: text("chapter"),
   applicationStatus: text("application_status").notNull().default("pending"), // pending | approved | rejected
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
   reviewedBy: text("reviewed_by"),

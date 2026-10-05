@@ -136,6 +136,55 @@ export function canEditMembers(user: SessionOfficer): boolean {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Neophyte Status module (/admin/neophytes).
+//
+// The module is chapter-scoped: chapter officers drive the formation pipeline
+// of the neophytes who picked their chapter during registration, so every read
+// path filters through `scopeChapterFor`/`chapterMatches` and every write path
+// re-checks the target row through `getScopedNeophyte`. Row scope comes from
+// `pgpmembers.member_chapter`, never from a submitted field.
+// ---------------------------------------------------------------------------
+
+/**
+ * Who may open the Neophyte Status module at all (and therefore who sees the
+ * sidebar entry). Every officer role qualifies; chapter-scoped roles are
+ * silently narrowed to their assigned chapter by the page's own filters.
+ */
+export function canViewNeophytes(user: SessionOfficer): boolean {
+  return (
+    isFullAdmin(user.role) ||
+    isProvincialRole(user.role) ||
+    isChapterScopedRole(user.role)
+  );
+}
+
+/**
+ * Who may create / update neophyte records and advance formation stages.
+ *
+ * Mirrors the member directory's secretary-led model (`canEditMembers`) and
+ * additionally lets a *chapter* treasurer drive their own chapter's pipeline,
+ * which is what the Neophyte Status module is for. Provincial treasurers stay
+ * read-only, as they are for member records.
+ */
+export function canManageNeophytes(user: SessionOfficer): boolean {
+  return canViewNeophytes(user) && user.role !== "provincial_treasurer";
+}
+
+/**
+ * Who may hard-delete a neophyte record (the "Failed to Comply" path, which
+ * drops the row and cascades to its credentials). Secretaries and full admins
+ * only; a chapter-scoped account can still never reach another chapter's row
+ * because `getScopedNeophyte` runs first.
+ */
+export function canDeleteNeophytes(user: SessionOfficer): boolean {
+  return (
+    isFullAdmin(user.role) ||
+    user.role === "provincial_secretary" ||
+    user.role === "chapter_secretary"
+  );
+}
+
 /** Treasurer side (plus full admins) may record / generate payments. */
 export function canRecordContributions(user: SessionOfficer): boolean {
   return (

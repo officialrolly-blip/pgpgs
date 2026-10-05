@@ -10,6 +10,7 @@ import { currentBillingMonth } from "@/lib/contributions";
 import { NEOPHYTE_STATUS_LABELS, NEOPHYTE_STATUSES } from "@/lib/member-constants";
 import {
   canEditMembers,
+  canManageNeophytes,
   roleLabel,
   scopeChapterFor,
   scopeLabel,
@@ -172,12 +173,13 @@ export default async function AdminOverviewPage() {
     year: "numeric",
   });
   const directory = directoryBreakdown.rows[0] ?? { neophytes: 0, officers: 0, alumni: 0, regular: 0 };
-  // Chapter officers cannot open the full-admin-only Officers / Neophyte
-  // pages, so their donut segments link back into their own scoped directory.
+  // Chapter officers can open the Neophyte Status module (scoped to their own
+  // chapter), but the Officers page stays full-admin only — so only that segment
+  // links back into the scoped directory.
   const composition = [
     { label: "Members", value: Number(directory.regular ?? 0), color: "#1b5c38", href: "/admin/members" },
     { label: "Officers", value: Number(directory.officers ?? 0), color: "#c9a227", href: seesProvinceWide ? "/admin/officials" : "/admin/members?status=PGP-GS+Roxas+City+Chapter+Officer" },
-    { label: "Neophytes", value: Number(directory.neophytes ?? 0), color: "#175cd3", href: seesProvinceWide ? "/admin/neophytes" : "/admin/members?status=Neophyte" },
+    { label: "Neophytes", value: Number(directory.neophytes ?? 0), color: "#175cd3", href: "/admin/neophytes" },
     { label: "Alumni", value: Number(directory.alumni ?? 0), color: "#98a2b3", href: "/admin/members?status=Alumni" },
   ];
 
@@ -289,8 +291,8 @@ export default async function AdminOverviewPage() {
         <NeophytePipelineChart
           stages={pipeline}
           unexpected={unexpectedStages}
-          href={seesProvinceWide ? "/admin/neophytes" : null}
-          canManage={seesProvinceWide}
+          href="/admin/neophytes"
+          canManage={canManageNeophytes(admin)}
         />
       </div>
 
@@ -510,7 +512,7 @@ function NeophytePipelineChart({
 }: {
   stages: { stage: string; label: string; value: number }[];
   unexpected: [string, number][];
-  /** Chapter officers have no access to the neophyte portal, so no drill-down. */
+  /** Chapter officers are scoped by the module itself, so the drill-down is always available. */
   href: string | null;
   canManage: boolean;
 }) {

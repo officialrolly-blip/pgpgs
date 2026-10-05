@@ -4,14 +4,18 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import { requireNeophytesPage, getScopedNeophyte } from "@/lib/officer-access";
 import PrintButton from "@/components/admin/print-button";
 
 export const metadata: Metadata = { title: "Neophyte Certification" };
 
 export default async function NeophyteCertificatePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  const viewer = await requireNeophytesPage();
   const { id } = await params;
+  // Chapter pin first: a chapter officer must not be able to print another
+  // chapter's certificate by guessing a UUID. `notFound()` keeps "no such
+  // record" and "another chapter" indistinguishable.
+  if (!(await getScopedNeophyte(viewer, id))) notFound();
   const [neophyte] = await db.select().from(pgpmembers).where(eq(pgpmembers.id, id)).limit(1);
   if (!neophyte?.neophyteCertificationIssuedAt) notFound();
 

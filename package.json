@@ -13,6 +13,7 @@
     "db:migrate-chapter-workflow": "tsx scripts/apply-chapter-workflow-migration.ts",
     "db:migrate-vice-president-role": "tsx scripts/apply-vice-president-role-migration.ts",
     "db:migrate-registration-sessions": "tsx scripts/apply-registration-sessions-migration.ts",
+    "db:migrate-registration-chapter": "tsx scripts/apply-registration-chapter-migration.ts",
     "db:migrate-grand-knight-dates": "tsx scripts/apply-grand-knight-dates-migration.ts",
     "db:migrate-grand-knight-chapter": "tsx scripts/apply-grand-knight-chapter-migration.ts",
     "db:migrate-chapter-organizer-chapter": "tsx scripts/apply-chapter-organizer-chapter-migration.ts",

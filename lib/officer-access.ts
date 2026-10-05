@@ -10,6 +10,8 @@ import { getSessionUser, requireAdmin, type AdminUser } from "@/lib/auth";
 import {
   canAccessChapter,
   canEditMembers,
+  canManageNeophytes,
+  canViewNeophytes,
   isChapterScopedRole,
   isFullAdmin,
   scopeChapterFor,
@@ -67,6 +69,64 @@ export async function currentChapterScope(): Promise<string | null> {
   const user = await getSessionUser();
   if (!user) return null;
   return scopeChapterFor(asOfficer(user));
+}
+
+/**
+ * Page guard for the Neophyte Status module. Any officer role may open it;
+ * chapter-scoped officers are narrowed to their assigned chapter by the page's
+ * own query filters (they are never redirected away from the module).
+ */
+export async function requireNeophytesPage(): Promise<OfficerSession> {
+  const user = await requireAdmin();
+  if (!canViewNeophytes(user)) redirect("/admin/members");
+  return user;
+}
+
+/**
+ * Action guard for the Neophyte Status module. Throws instead of redirecting so
+ * a crafted POST from a read-only account is rejected rather than bounced.
+ */
+export async function requireNeophytesAction(): Promise<OfficerSession> {
+  const user = await requireAdmin();
+  if (!canManageNeophytes(user)) {
+    throw new Error("Your account cannot manage neophyte records.");
+  }
+  return user;
+}
+
+/**
+ * Loads one neophyte row and returns it only when the viewer may act on it.
+ *
+ * `null` covers "does not exist" and "belongs to another chapter"
+ * interchangeably, so a chapter officer cannot probe for records outside their
+ * assignment. `requireNeophytesAction` must already have run: this helper only
+ * resolves scope, not the account's write rights.
+ */
+export async function getScopedNeophyte(
+  viewer: AdminUser,
+  neophyteId: string,
+): Promise<{
+  id: string;
+  memberChapter: string | null;
+  status: string;
+  neophyteStatus: string | null;
+} | null> {
+  const { db } = await import("@/db");
+  const { pgpmembers } = await import("@/db/schema");
+  const { eq } = await import("drizzle-orm");
+  const [neophyte] = await db
+    .select({
+      id: pgpmembers.id,
+      memberChapter: pgpmembers.memberChapter,
+      status: pgpmembers.status,
+      neophyteStatus: pgpmembers.neophyteStatus,
+    })
+    .from(pgpmembers)
+    .where(eq(pgpmembers.id, neophyteId))
+    .limit(1);
+  if (!neophyte) return null;
+  if (!canAccessChapter(asOfficer(viewer), neophyte.memberChapter)) return null;
+  return neophyte;
 }
 
 /**

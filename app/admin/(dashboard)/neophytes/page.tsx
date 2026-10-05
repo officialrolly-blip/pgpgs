@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { pgpmembers } from "@/db/schema";
 import NeophyteStatusControls from "@/components/admin/neophyte-status-controls";
-import { requireFullAdminPage } from "@/lib/officer-access";
+import { requireNeophytesPage } from "@/lib/officer-access";
+import { chapterMatches } from "@/lib/chapters";
+import { canDeleteNeophytes, canManageNeophytes, scopeChapterFor, scopeLabel } from "@/lib/officer-permissions";
 import { NEOPHYTE_STATUSES, NEOPHYTE_STATUS_LABELS } from "@/lib/member-constants";
 
 export const metadata: Metadata = { title: "Neophyte Status" };
@@ -50,14 +52,26 @@ const stageBlurbs: Record<NeophyteStatus, string> = {
 export default async function AdminNeophytesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string; confirmed?: string; removed?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string; confirmed?: string; removed?: string; created?: string }>;
 }) {
-  await requireFullAdminPage();
+  const viewer = await requireNeophytesPage();
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const selectedStatus = NEOPHYTE_STATUSES.includes(params.status as NeophyteStatus) ? (params.status as NeophyteStatus) : "all";
   const requestedPage = Math.max(1, Number(params.page ?? "1") || 1);
+
+  // Single source of truth for the chapter pin: null = whole province. A chapter
+  // secretary / treasurer therefore only ever sees the neophytes who selected
+  // their chapter at registration (`pgpmembers.member_chapter`).
+  const scope = scopeChapterFor(viewer);
+  const canManage = canManageNeophytes(viewer);
+  const canDelete = canDeleteNeophytes(viewer);
+
   const conditions = [eq(pgpmembers.status, "Neophyte")];
+  if (scope) {
+    const chapterCondition = chapterMatches(pgpmembers.memberChapter, scope);
+    if (chapterCondition) conditions.push(chapterCondition);
+  }
   if (selectedStatus !== "all") conditions.push(eq(pgpmembers.neophyteStatus, selectedStatus));
   if (q) {
     const pattern = `%${q}%`;
@@ -71,16 +85,37 @@ export default async function AdminNeophytesPage({
   }
   const where = and(...conditions);
 
+  // Aggregates must obey the same chapter pin as the list below, otherwise the
+  // stage tiles would leak province-wide counts to a chapter officer. The
+  // normalised condition is interpolated as a parameter so the raw SQL cannot
+  // drift from the list filter.
+  const formationChapterFilter = scope
+    ? sql`and ${chapterMatches(pgpmembers.memberChapter, scope)}`
+    : sql``;
+
   const [countRows, statusRows, formationRows] = await Promise.all([
     db.select({ value: count() }).from(pgpmembers).where(where),
-    db.select({ status: pgpmembers.neophyteStatus, value: count() }).from(pgpmembers).where(eq(pgpmembers.status, "Neophyte")).groupBy(pgpmembers.neophyteStatus),
-    db.execute<{ passed: number; certified: number }>(
-      `select
-         count(*) filter (where neophyte_status = 'passed_member')::int as passed,
-         count(*) filter (where neophyte_status = 'passed_member' and neophyte_certification_issued_at is not null)::int as certified
-       from pgpmembers
-       where status = 'Neophyte'`,
-    ),
+    db
+      .select({ status: pgpmembers.neophyteStatus, value: count() })
+      .from(pgpmembers)
+      .where(
+        and(
+          eq(pgpmembers.status, "Neophyte"),
+          ...(scope
+            ? [chapterMatches(pgpmembers.memberChapter, scope)].filter(
+                (condition): condition is SQL => Boolean(condition),
+              )
+            : []),
+        ),
+      )
+      .groupBy(pgpmembers.neophyteStatus),
+    db.execute<{ passed: number; certified: number }>(sql`
+      select
+        count(*) filter (where neophyte_status = 'passed_member')::int as passed,
+        count(*) filter (where neophyte_status = 'passed_member' and neophyte_certification_issued_at is not null)::int as certified
+      from pgpmembers
+      where status = 'Neophyte' ${formationChapterFilter}
+    `),
   ]);
   const total = Number(countRows[0]?.value ?? 0);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -127,11 +162,20 @@ export default async function AdminNeophytesPage({
                 : " · all passed neophytes are certified"}
               .
             </p>
+            <p className="mt-1.5 text-xs font-medium text-[var(--gold-light)]">
+              Scope: {scopeLabel(viewer)}
+              {scope ? " · neophytes from other chapters are hidden" : ""}
+            </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2.5">
             <Link href={buildHref("passed_member")} className="a-btn a-btn-gold">
               Review passed ({passedCount})
             </Link>
+            {canManage ? (
+              <Link href="/admin/neophytes/new" className="a-btn border-white/25 bg-white/10 text-white transition hover:bg-white/20">
+                Add neophyte →
+              </Link>
+            ) : null}
             <Link href="/admin/members" className="a-btn border-white/25 bg-white/10 text-white transition hover:bg-white/20">
               Member directory →
             </Link>
@@ -143,6 +187,13 @@ export default async function AdminNeophytesPage({
         <div role="status" className="a-card mb-5 flex items-start gap-3 border-a-success/30 bg-a-success-soft px-4 py-3.5">
           <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-a-success text-xs font-bold text-white" aria-hidden="true">✓</span>
           <p className="text-sm font-medium text-a-success">The neophyte was confirmed and moved to the member directory.</p>
+        </div>
+      ) : null}
+
+      {params.created ? (
+        <div role="status" className="a-card mb-5 flex items-start gap-3 border-a-success/30 bg-a-success-soft px-4 py-3.5">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-a-success text-xs font-bold text-white" aria-hidden="true">✓</span>
+          <p className="text-sm font-medium text-a-success">Neophyte added at Orientation and is now tracked in this chapter&apos;s formation pipeline.</p>
         </div>
       ) : null}
 
@@ -218,7 +269,7 @@ export default async function AdminNeophytesPage({
           <p className="mt-1 text-xs text-a-muted">Approved applications will appear here at Orientation.</p>
         </div>
       ) : (
-        <div className="space-y-3">{neophytes.map((neophyte) => <NeophyteCard key={neophyte.id} neophyte={neophyte} />)}</div>
+        <div className="space-y-3">{neophytes.map((neophyte) => <NeophyteCard key={neophyte.id} neophyte={neophyte} canManage={canManage} canDelete={canDelete} />)}</div>
       )}
 
       {totalPages > 1 ? (
@@ -232,11 +283,11 @@ export default async function AdminNeophytesPage({
   );
 }
 
-function NeophyteCard({ neophyte }: { neophyte: Neophyte }) {
+function NeophyteCard({ neophyte, canManage, canDelete }: { neophyte: Neophyte; canManage: boolean; canDelete: boolean }) {
   const currentStatus = NEOPHYTE_STATUSES.includes(neophyte.neophyteStatus as NeophyteStatus) ? (neophyte.neophyteStatus as NeophyteStatus) : "orientation";
   const currentIndex = NEOPHYTE_STATUSES.indexOf(currentStatus);
   const certified = Boolean(neophyte.neophyteCertificationIssuedAt);
-  return <article className="a-card overflow-hidden"><header className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="flex min-w-0 items-center gap-3"><InitialsAvatar name={personName(neophyte)} tone="gold" /><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-base font-semibold text-a-text">{personName(neophyte)}</h2><span className={`a-badge ${stageBadges[currentStatus]}`}>{NEOPHYTE_STATUS_LABELS[currentStatus]}</span>{certified ? <span className="a-badge a-badge-green a-badge-plain">Certified</span> : null}</div><p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-a-muted"><span className="font-mono">{neophyte.memberId}</span><span className="truncate">{neophyte.email}</span><span>{neophyte.contactNumber}</span></p></div></div><div className="flex shrink-0 items-center gap-4"><div className="hidden items-center gap-1.5" aria-hidden="true">{NEOPHYTE_STATUSES.map((status, index) => <span key={status} className={`h-2 w-6 rounded-full ${index < currentIndex ? "bg-a-brand" : index === currentIndex ? "bg-a-gold" : "bg-gray-200"}`} />)}</div><p className="text-xs text-a-muted">Updated {relativeDays(neophyte.neophyteStatusUpdatedAt ?? neophyte.createdAt)}</p></div></header><details className="group border-t border-a-border-soft"><summary className="cursor-pointer list-none px-5 py-3 text-xs font-semibold text-a-brand transition hover:text-a-brand-dark sm:px-6"><span className="mr-2 inline-block transition group-open:rotate-90">›</span> View complete personal details</summary><dl className="grid gap-x-8 gap-y-4 border-t border-a-border-soft bg-[var(--a-bg)] px-5 py-5 sm:grid-cols-2 lg:grid-cols-3 sm:px-6"><Detail label="Age" value={String(neophyte.age)} /><Detail label="Date of birth" value={neophyte.dateOfBirth} /><Detail label="Place of birth" value={neophyte.placeOfBirth} /><Detail label="Address" value={`${neophyte.street}, ${neophyte.barangay}, ${neophyte.municipality}, ${neophyte.province}`} /><Detail label="Guardian" value={`${neophyte.guardianName} (${neophyte.guardianContact})`} /><Detail label="Guardian address" value={neophyte.guardianAddress} /><Detail label="Baptized name" value={neophyte.baptizedName} /><Detail label="Application record" value={`Created ${formatDate(neophyte.createdAt)}`} /><Detail label="Last stage update" value={neophyte.neophyteStatusUpdatedAt ? `${formatDate(neophyte.neophyteStatusUpdatedAt)}${neophyte.neophyteStatusUpdatedBy ? ` by ${neophyte.neophyteStatusUpdatedBy}` : ""}` : "—"} /></dl></details><NeophyteStatusControls neophyteId={neophyte.id} currentStatus={currentStatus} certificationIssuedAt={neophyte.neophyteCertificationIssuedAt?.toISOString() ?? null} /></article>;
+  return <article className="a-card overflow-hidden"><header className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="flex min-w-0 items-center gap-3"><InitialsAvatar name={personName(neophyte)} tone="gold" /><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-base font-semibold text-a-text">{personName(neophyte)}</h2><span className={`a-badge ${stageBadges[currentStatus]}`}>{NEOPHYTE_STATUS_LABELS[currentStatus]}</span>{certified ? <span className="a-badge a-badge-green a-badge-plain">Certified</span> : null}</div><p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-a-muted"><span className="font-mono">{neophyte.memberId}</span><span className="truncate">{neophyte.email}</span><span>{neophyte.contactNumber}</span></p></div></div><div className="flex shrink-0 items-center gap-4"><div className="hidden items-center gap-1.5" aria-hidden="true">{NEOPHYTE_STATUSES.map((status, index) => <span key={status} className={`h-2 w-6 rounded-full ${index < currentIndex ? "bg-a-brand" : index === currentIndex ? "bg-a-gold" : "bg-gray-200"}`} />)}</div><p className="text-xs text-a-muted">Updated {relativeDays(neophyte.neophyteStatusUpdatedAt ?? neophyte.createdAt)}</p></div></header><details className="group border-t border-a-border-soft"><summary className="cursor-pointer list-none px-5 py-3 text-xs font-semibold text-a-brand transition hover:text-a-brand-dark sm:px-6"><span className="mr-2 inline-block transition group-open:rotate-90">›</span> View complete personal details</summary><dl className="grid gap-x-8 gap-y-4 border-t border-a-border-soft bg-[var(--a-bg)] px-5 py-5 sm:grid-cols-2 lg:grid-cols-3 sm:px-6"><Detail label="Age" value={String(neophyte.age)} /><Detail label="Date of birth" value={neophyte.dateOfBirth} /><Detail label="Place of birth" value={neophyte.placeOfBirth} /><Detail label="Address" value={`${neophyte.street}, ${neophyte.barangay}, ${neophyte.municipality}, ${neophyte.province}`} /><Detail label="Guardian" value={`${neophyte.guardianName} (${neophyte.guardianContact})`} /><Detail label="Guardian address" value={neophyte.guardianAddress} /><Detail label="Baptized name" value={neophyte.baptizedName} /><Detail label="Chapter" value={neophyte.memberChapter ?? "Unassigned"} /><Detail label="Application record" value={`Created ${formatDate(neophyte.createdAt)}`} /><Detail label="Last stage update" value={neophyte.neophyteStatusUpdatedAt ? `${formatDate(neophyte.neophyteStatusUpdatedAt)}${neophyte.neophyteStatusUpdatedBy ? ` by ${neophyte.neophyteStatusUpdatedBy}` : ""}` : "—"} /></dl></details><NeophyteStatusControls neophyteId={neophyte.id} currentStatus={currentStatus} certificationIssuedAt={neophyte.neophyteCertificationIssuedAt?.toISOString() ?? null} canManage={canManage} canDelete={canDelete} /></article>;
 }
 
 function Detail({ label, value }: { label: string; value: string }) { return <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-a-muted">{label}</dt><dd className="mt-0.5 text-sm text-a-secondary">{value}</dd></div>; }

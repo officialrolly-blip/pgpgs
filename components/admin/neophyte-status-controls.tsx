@@ -20,10 +20,14 @@ export default function NeophyteStatusControls({
   neophyteId,
   currentStatus,
   certificationIssuedAt,
+  canManage = true,
+  canDelete = true,
 }: {
   neophyteId: string;
   currentStatus: string;
   certificationIssuedAt: string | null;
+  canManage?: boolean;
+  canDelete?: boolean;
 }) {
   const [statusState, statusAction, statusPending] = useActionState<NeophyteActionState, FormData>(
     updateNeophyteStatusAction,
@@ -47,7 +51,8 @@ export default function NeophyteStatusControls({
     setPrevActiveStatus(activeStatus);
     setSelectedStatus(activeStatus);
   }
-  const failedToComply = selectedStatus === NEOPHYTE_FAILED_TO_COMPLY;
+  // The delete sentinel is only offered when the account may hard-delete.
+  const failedToComply = canDelete && selectedStatus === NEOPHYTE_FAILED_TO_COMPLY;
 
   return (
     <div className="border-t border-a-border-soft bg-[var(--a-bg)] px-5 py-5 sm:px-6">
@@ -77,9 +82,15 @@ export default function NeophyteStatusControls({
       </div>
 
       <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        {!canManage ? (
+          <p className="text-xs font-medium text-a-muted">
+            Your account has view-only access to neophyte records.
+          </p>
+        ) : null}
+        {canManage ? (
         <form action={statusAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <input type="hidden" name="neophyteId" value={neophyteId} />
-          <label className="block"><span className="text-[11px] font-semibold uppercase tracking-wide text-a-muted">Update stage</span><select name="neophyteStatus" value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)} className="a-select mt-1 sm:min-w-56"><option value="orientation">Orientation</option><option value="baptism">Baptism</option><option value="baptism_confirmed">Confirmation of Baptism</option><option value="passed_member">Passed as a Member</option><option value={NEOPHYTE_FAILED_TO_COMPLY}>{NEOPHYTE_FAILED_TO_COMPLY_LABEL}</option></select></label>
+          <label className="block"><span className="text-[11px] font-semibold uppercase tracking-wide text-a-muted">Update stage</span><select name="neophyteStatus" value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)} className="a-select mt-1 sm:min-w-56"><option value="orientation">Orientation</option><option value="baptism">Baptism</option><option value="baptism_confirmed">Confirmation of Baptism</option><option value="passed_member">Passed as a Member</option>{canDelete ? <option value={NEOPHYTE_FAILED_TO_COMPLY}>{NEOPHYTE_FAILED_TO_COMPLY_LABEL}</option> : null}</select></label>
           {failedToComply ? (
             <ConfirmSubmitButton
               message="Mark this neophyte as “Failed to Comply”? This permanently removes the neophyte record from the database. This action cannot be undone."
@@ -92,12 +103,15 @@ export default function NeophyteStatusControls({
             <button type="submit" disabled={statusPending} className="a-btn a-btn-primary a-btn-sm">{statusPending ? "Saving…" : "Save status"}</button>
           )}
         </form>
+        ) : null}
 
+        {canManage ? (
         <div className="flex flex-wrap gap-2">
           {passed && !certified ? <form action={certAction}><input type="hidden" name="neophyteId" value={neophyteId} /><button type="submit" disabled={certPending} className="a-btn a-btn-sm border border-[var(--gold)]/50 bg-[var(--gold)]/10 text-[var(--green-dark)] transition hover:bg-[var(--gold)]/25 disabled:cursor-not-allowed disabled:opacity-60">{certPending ? "Issuing…" : "Issue certification"}</button></form> : null}
           {certified ? <Link href={`/admin/neophytes/${neophyteId}/certificate`} target="_blank" rel="noreferrer" className="a-btn a-btn-secondary a-btn-sm">View / print certificate ↗</Link> : null}
           {passed && certified ? <form action={confirmNeophyteMemberAction}><input type="hidden" name="neophyteId" value={neophyteId} /><ConfirmSubmitButton message="Confirm this neophyte as an official member? This will move the record to the member directory." className="a-btn a-btn-primary a-btn-sm">Confirm as member</ConfirmSubmitButton></form> : null}
         </div>
+        ) : null}
       </div>
 
       {failedToComply ? (

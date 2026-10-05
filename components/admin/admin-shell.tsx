@@ -30,7 +30,7 @@ const navSections: { caption: string; links: NavLink[] }[] = [
       { label: "Members", href: "/admin/members", icon: "users", roles: ROLE_OFFICER_ALL },
       { label: "Applications", href: "/admin/registrations", icon: "inbox", badge: "pending", roles: ROLE_FULL },
       { label: "Inbox", href: "/admin/inbox", icon: "mail", badge: "unread", roles: ROLE_FULL },
-      { label: "Neophyte status", href: "/admin/neophytes", icon: "spark", roles: ROLE_FULL },
+      { label: "Neophyte status", href: "/admin/neophytes", icon: "spark", roles: ROLE_OFFICER_ALL },
     ],
   },
   {
@@ -148,6 +148,8 @@ export default function AdminShell({
       links: section.links.filter((link) => !link.roles || link.roles.includes(user.role)),
     }))
     .filter((section) => section.links.length > 0);
+
+  const seesFullAdminOnly = ROLE_FULL.includes(user.role);
 
   const allLinks = visibleSections.flatMap((section) => section.links);
   const pageTitle =
@@ -284,6 +286,12 @@ export default function AdminShell({
           </p>
 
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            {/* Applications and Inbox are full-admin-only sections. Their sidebar
+                entries are role-filtered, so these header shortcuts must be too —
+                otherwise a chapter/provincial officer gets dead links to pages
+                that redirect them away. */}
+            {seesFullAdminOnly ? (
+              <>
             <Link
               href="/admin/registrations"
               title="Pending applications"
@@ -315,6 +323,8 @@ export default function AdminShell({
                 </span>
               ) : null}
             </Link>
+              </>
+            ) : null}
 
             <span className="hidden h-6 w-px bg-a-border sm:block" aria-hidden="true" />
 

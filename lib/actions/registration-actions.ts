@@ -77,6 +77,12 @@ export async function approveRegistrationAction(
         // Approved applications enter the internal formation workflow first.
         // They become public members only after an officer confirms completion.
         status: "Neophyte",
+        // Carry the chapter picked at registration onto the member record. This
+        // is the column every chapter-scoped Neophyte Status query filters on,
+        // so a chapter officer only ever sees the neophytes who chose their
+        // chapter. Older applications have no chapter: fall back to the
+        // organiser's own chapter so the record is still attributable.
+        memberChapter: application.chapter?.trim() || admin.assignedChapter?.trim() || null,
         neophyteStatus: "orientation",
         neophyteStatusUpdatedAt: now,
         neophyteStatusUpdatedBy: admin.email,
